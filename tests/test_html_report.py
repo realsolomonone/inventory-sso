@@ -104,3 +104,8 @@ def test_verify_html_is_ready_to_open(tmp_path: Path):
     assert "PARTIAL" in text
     assert "Role exists" in text
     assert Path(html["verify_html_archive"]).is_file()
+    exec_path = Path(html["executive_html"])
+    assert exec_path.name == "executive.html"
+    exec_text = exec_path.read_text(encoding="utf-8")
+    assert "executive verification" in exec_text.lower() or "Accounts that need attention" in exec_text
+    assert "edl-dev" in exec_text

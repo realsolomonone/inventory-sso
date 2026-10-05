@@ -321,7 +321,7 @@ def _write_verify_reports(report, output_dir: Path) -> dict[str, str]:
 
 def _print_verify_deliverables(report) -> None:
     reports = report.reports or {}
-    html_path = reports.get("verify_html")
+    html_path = reports.get("executive_html")
     print("\n" + "=" * 62)
     print(f"VERIFY {report.role_name}")
     print("=" * 62)
@@ -329,7 +329,9 @@ def _print_verify_deliverables(report) -> None:
     print(f"  Pass / fail / missing: {report.passed_count} / {report.failed_count} / {report.missing_count}")
     print(f"  Denied / error:        {report.blocked_count}")
     if html_path:
-        print(f"\n  Open HTML report:      {html_path}\n")
+        print(f"\n  Executive HTML:        {html_path}")
+    if reports.get("verify_html"):
+        print(f"  Detail HTML:           {reports['verify_html']}\n")
     for key, label in (
         ("verify_accounts_csv", "Accounts CSV"),
         ("verify_checks_csv", "Checks CSV"),
@@ -371,6 +373,7 @@ def cmd_verify(args: argparse.Namespace) -> ExitCode:
         return ExitCode.FAILED
 
     valid: list[str] = []
+    skipped: list = []
     print("\nCredential check:")
     for index, profile in enumerate(selected, 1):
         if args.dry_run:
@@ -382,10 +385,20 @@ def cmd_verify(args: argparse.Namespace) -> ExitCode:
             valid.append(profile)
             print(f"  [{index}/{len(selected)}] OK   {profile}")
         else:
+            from src.models import AccountVerify
+
+            skipped.append(
+                AccountVerify(
+                    profile=profile,
+                    account_id="",
+                    account_name=profile,
+                    partition=config.partition,
+                    role_name=config.role.name,
+                    status="denied",
+                    message=message,
+                )
+            )
             print(f"  [{index}/{len(selected)}] SKIP {profile}: {message}")
-    if not valid:
-        print("\nNo valid profiles. Run: ./scripts/sso-login.sh --all")
-        return ExitCode.FAILED
 
     report = run_verify(
         config,
@@ -393,6 +406,13 @@ def cmd_verify(args: argparse.Namespace) -> ExitCode:
         probe=not args.no_probe,
         dry_run=bool(args.dry_run),
     )
+    if skipped:
+        report.accounts = sorted(list(report.accounts) + skipped, key=lambda row: row.profile)
+        report.narrative = (
+            [line for line in report.narrative if line]
+            + [f"{len(skipped)} profile(s) skipped (SSO/session). Re-login: ./scripts/sso-login.sh --all"]
+        )
+
     if not args.dry_run:
         report.reports = _write_verify_reports(report, output_dir)
 
@@ -408,7 +428,7 @@ def cmd_verify(args: argparse.Namespace) -> ExitCode:
         if not args.dry_run:
             _print_verify_deliverables(report)
 
-    html_path = (report.reports or {}).get("verify_html")
+    html_path = (report.reports or {}).get("executive_html") or (report.reports or {}).get("verify_html")
     if args.open and html_path:
         webbrowser.open(Path(html_path).resolve().as_uri())
 

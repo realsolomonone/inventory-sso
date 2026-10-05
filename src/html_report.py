@@ -91,14 +91,11 @@ def write_html_reports(inventory: Inventory, output_dir: Path) -> dict[str, str]
 def _nav(reports: dict[str, str]) -> str:
     links = []
     mapping = (
-        ("index_html", "Index"),
         ("executive_html", "Executive"),
-        ("verify_html", "Role verify"),
-        ("verify_index_html", "Verify index"),
-        ("inventory_csv", "Inventory CSV"),
-        ("verify_accounts_csv", "Verify CSV"),
-        ("json", "JSON"),
-        ("verify_json", "Verify JSON"),
+        ("verify_html", "Detail"),
+        ("index_html", "Scan"),
+        ("verify_accounts_csv", "CSV"),
+        ("verify_json", "JSON"),
     )
     for key, label in mapping:
         path = reports.get(key)
@@ -211,19 +208,28 @@ def write_verify_html_reports(report: VerifyReport, output_dir: Path) -> dict[st
     )
     reports = dict(report.reports)
     latest = output_dir / "role-verify.html"
+    executive = output_dir / "executive.html"
     archive = output_dir / f"role-verify-{tag}.html"
     reports["verify_html"] = str(latest)
+    reports["executive_html"] = str(executive)
     reports["verify_html_archive"] = str(archive)
     subtitle = f"{report.ticket} · role {report.role_name} · {report.generated_at}"
-    page = _page(
+    exec_page = _page(
+        f"{report.role_name} — executive verification",
+        subtitle,
+        reports,
+        _verify_executive_body(report),
+    )
+    detail_page = _page(
         f"Verify {report.role_name}",
         subtitle,
         reports,
         _verify_report_body(report, reports),
         extra_script=_VERIFY_FILTER_JS,
     )
-    latest.write_text(page, encoding="utf-8")
-    archive.write_text(page, encoding="utf-8")
+    executive.write_text(exec_page, encoding="utf-8")
+    latest.write_text(detail_page, encoding="utf-8")
+    archive.write_text(detail_page, encoding="utf-8")
     return reports
 
 
@@ -259,6 +265,42 @@ def _verify_account_rows(report: VerifyReport) -> str:
       <tbody>{body}</tbody>
     </table></div>
     """
+
+
+def _verify_executive_body(report: VerifyReport) -> str:
+    issues = [row for row in report.accounts if row.status != "pass"]
+    if issues:
+        issue_rows = "".join(
+            "<tr class='row-{0}'>"
+            "<td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td></tr>".format(
+                _esc(row.status),
+                _esc(row.profile),
+                _esc(row.account_id or "—"),
+                _badge(row.status),
+                _esc(row.message or "Needs attention"),
+            )
+            for row in issues
+        )
+        exceptions = (
+            "<div class='panel'><h2>Accounts that need attention</h2>"
+            "<div class='table-wrap'><table class='data'>"
+            "<thead><tr><th>Profile</th><th>Account</th><th>Status</th><th>Why</th></tr></thead>"
+            f"<tbody>{issue_rows}</tbody></table></div></div>"
+        )
+    else:
+        exceptions = "<div class='panel'><h2>Exceptions</h2><p>None. Role is present and compliant in every checked account.</p></div>"
+    return (
+        f"{_verify_banner(report)}"
+        f"{_verify_kpis(report)}"
+        "<div class='panel'><h2>Scope</h2>"
+        f"<p>IAM role <span class='mono'>{_esc(report.role_name)}</span> across "
+        f"{len(report.accounts)} Identity Center account(s). "
+        "Checks: exists, SSO trust, Resource Groups read, tagging read-only.</p></div>"
+        f"{exceptions}"
+        "<div class='panel'><h2>All accounts</h2>"
+        f"{_verify_account_rows(report)}</div>"
+        "<p class='footer'>Engineer detail: <a href='role-verify.html'>role-verify.html</a></p>"
+    )
 
 
 def _verify_banner(report: VerifyReport) -> str:

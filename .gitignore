@@ -22,3 +22,4 @@ infra/live/**/verification.json
 infra/live/**/verification.md
 crash.log
 *.tar
+!inventory-sso.tar

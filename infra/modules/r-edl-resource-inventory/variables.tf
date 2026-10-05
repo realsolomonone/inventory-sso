@@ -1,6 +1,6 @@
 variable "aws_region" {
   type        = string
-  description = "Provider region (GovCloud home is typically us-gov-east-1)."
+  description = "Provider region (set by Terragrunt; GovCloud home is typically us-gov-east-1)."
   default     = "us-gov-east-1"
 }
 
@@ -57,6 +57,6 @@ variable "verification_dir" {
 
 variable "fail_if_not_compliant" {
   type        = bool
-  description = "If true, terraform apply fails when live IAM does not match the screenshot policy."
+  description = "If true, terragrunt apply fails when live IAM does not match the screenshot policy."
   default     = false
 }

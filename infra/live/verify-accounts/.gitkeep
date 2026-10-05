@@ -1,2 +1,4 @@
-# Generated Terragrunt verify-only stacks. Run:
-#   ./scripts/stacks-generate.sh --mode verify
+# Generated Terragrunt verify-only stacks — one directory per SSO account.
+# From this folder only:
+#   terragrunt run-all apply
+#   terragrunt run-all output verification

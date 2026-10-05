@@ -134,8 +134,8 @@ def cmd_setup(args: argparse.Namespace) -> ExitCode:
     print("\nSetup step complete. Next:")
     print("  1. ./scripts/doctor.sh")
     print("  2. ./scripts/sso-login.sh --all")
-    print("  3. ./scripts/sso-profiles.sh --check")
-    print("  4. ./scripts/run-all.sh apply --yes")
+    print("  3. ./scripts/stacks-generate.sh")
+    print("  4. cd infra/live/accounts && terragrunt run-all apply")
     return ExitCode.OK
 
 
@@ -352,11 +352,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Deploy r-edl-resource-inventory via Terragrunt and inventory tagged resources across SSO accounts.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
-            "Quick path (shell + Terragrunt; Python is optional):\n"
-            "  ./scripts/doctor.sh\n"
+            "Quick path (Terragrunt across all SSO accounts):\n"
             "  ./scripts/sso-login.sh --all\n"
-            "  ./scripts/sso-profiles.sh --check\n"
-            "  ./scripts/run-all.sh apply --yes\n"
+            "  ./scripts/stacks-generate.sh\n"
+            "  cd infra/live/accounts && terragrunt run-all apply\n"
         ),
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -364,7 +363,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-q", "--quiet", action="store_true")
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("guide", help="Print README").set_defaults(func=cmd_guide)
-    sub.add_parser("doctor", help="Verify Python, AWS config, and Terraform module").set_defaults(func=cmd_doctor)
+    sub.add_parser("doctor", help="Verify AWS CLI, Terragrunt, and live root.hcl").set_defaults(func=cmd_doctor)
 
     setup = sub.add_parser("setup", help="Create venv and install dependencies")
     setup.add_argument("--install", action="store_true")

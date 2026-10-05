@@ -1,7 +1,8 @@
-# Read-only verification of the live inventory IAM role.
-# Does not create or change IAM. Writes verification.json and verification.md.
+# Optional single-account data-only verify. All-account verify:
+#   cd infra/live/verify-accounts && terragrunt run-all apply
 #
-#   AWS_PROFILE=YOUR_PROFILE ./scripts/run-one.sh verify
+#   AWS_PROFILE=YOUR_PROFILE AWS_REGION=us-gov-east-1 terragrunt apply
+#   terragrunt output verification
 
 include "root" {
   path   = find_in_parent_folders("root.hcl")

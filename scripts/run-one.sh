@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Apply / verify a single AWS_PROFILE using the reusable live units.
+# Single-account Terragrunt apply using AWS_PROFILE.
+# Prefer a generated stack when you have one:
 #
-#   AWS_PROFILE=edl-addcp-dev-ew ./scripts/run-one.sh apply
-#   AWS_PROFILE=edl-addcp-dev-ew ./scripts/run-one.sh verify
-#   ENVIRONMENT=commercial AWS_PROFILE=NAME ./scripts/run-one.sh plan
+#   cd infra/live/accounts/<profile>
+#   terragrunt apply
+#   terragrunt output verification
 
 set -euo pipefail
 . "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib.sh"
@@ -22,6 +23,7 @@ done
 if [ -z "${AWS_PROFILE:-}" ]; then
   echo "Set AWS_PROFILE to an IAM Identity Center profile name." >&2
   echo "Example: AWS_PROFILE=edl-addcp-dev-ew ./scripts/run-one.sh apply" >&2
+  echo "Or:      cd infra/live/accounts/<profile> && terragrunt apply" >&2
   exit 2
 fi
 

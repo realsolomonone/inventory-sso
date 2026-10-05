@@ -1,2 +1,5 @@
-# Generated Terragrunt create stacks. Run:
-#   ./scripts/stacks-generate.sh
+# Generated Terragrunt stacks — one directory per SSO account.
+# From this folder only:
+#   terragrunt run-all plan
+#   terragrunt run-all apply
+#   terragrunt run-all output verification

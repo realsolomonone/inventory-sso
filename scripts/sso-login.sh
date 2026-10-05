@@ -191,5 +191,6 @@ if [ "$failed" -gt 0 ]; then
   exit 1
 fi
 echo "Next: ./scripts/sso-profiles.sh --check"
-echo "Then: ./scripts/run-all.sh apply --yes"
+echo "Then: ./scripts/stacks-generate.sh"
+echo "Then: cd infra/live/accounts && terragrunt run-all apply"
 exit 0

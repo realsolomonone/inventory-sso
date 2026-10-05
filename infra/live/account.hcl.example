@@ -1,6 +1,7 @@
-# Copy to infra/live/accounts/<profile>/terragrunt.hcl and set aws_profile,
-# or run: ./scripts/stacks-generate.sh
-# Then: ./scripts/run-all.sh apply --yes
+# Copy to infra/live/accounts/<profile>/terragrunt.hcl, or run ./scripts/stacks-generate.sh
+#
+#   cd infra/live/accounts
+#   terragrunt run-all apply
 
 include "root" {
   path   = find_in_parent_folders("root.hcl")

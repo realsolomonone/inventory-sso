@@ -123,9 +123,10 @@ done
 echo
 echo "Wrote $written Terragrunt stack(s) under $ACCOUNTS_DIR"
 if [ "$MODE" = create ]; then
-  echo "Next: ./scripts/run-all.sh plan"
-  echo "Then: ./scripts/run-all.sh apply --yes"
+  echo "Next: cd infra/live/accounts && terragrunt run-all plan"
+  echo "Then: cd infra/live/accounts && terragrunt run-all apply"
 else
-  echo "Next: ./scripts/run-all.sh verify"
+  echo "Next: cd infra/live/verify-accounts && terragrunt run-all apply"
+  echo "Then: cd infra/live/verify-accounts && terragrunt run-all output verification"
 fi
 exit 0

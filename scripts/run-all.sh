@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Plan / apply / verify / output Terragrunt stacks for every generated account.
+# Thin wrapper around `terragrunt run-all` for every generated account stack.
+# Prefer the Terragrunt commands directly:
 #
-#   ./scripts/run-all.sh plan
-#   ./scripts/run-all.sh apply --yes
-#   ./scripts/run-all.sh output
-#   ./scripts/run-all.sh verify
-#   ENVIRONMENT=commercial ./scripts/run-all.sh apply --yes
+#   cd infra/live/accounts
+#   terragrunt run-all plan
+#   terragrunt run-all apply
+#   terragrunt run-all output verification
 
 set -euo pipefail
 . "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib.sh"
@@ -25,12 +25,15 @@ usage() {
   cat <<'EOF'
 Usage: ./scripts/run-all.sh <plan|apply|output|verify> [--yes]
 
-  plan     terragrunt run-all plan   (create stacks)
-  apply    terragrunt run-all apply  (create + verify IAM; requires --yes)
-  output   terragrunt run-all output verification
-  verify   data-only verify stacks (infra/live/verify-accounts)
+Equivalent Terragrunt (preferred):
 
-Generate stacks first with ./scripts/stacks-generate.sh (verify uses --mode verify).
+  cd infra/live/accounts
+  terragrunt run-all plan
+  terragrunt run-all apply
+  terragrunt run-all output verification
+
+  cd infra/live/verify-accounts
+  terragrunt run-all apply
 EOF
 }
 
@@ -58,8 +61,7 @@ print_env_banner
 echo
 
 if [ ! -d "$LIVE_DIR" ] || ! ls -d "$LIVE_DIR"/*/ >/dev/null 2>&1; then
-  echo "No stacks in $LIVE_DIR"
-  echo "Generating from SSO profiles…"
+  echo "No Terragrunt stacks in $LIVE_DIR — generating from SSO profiles"
   echo
   if [ "$MODE" = verify ]; then
     "$ROOT_DIR/scripts/stacks-generate.sh" --mode verify
@@ -74,33 +76,34 @@ if ! ls -d "$LIVE_DIR"/*/ >/dev/null 2>&1; then
 fi
 
 cd "$LIVE_DIR"
-echo "cwd=$LIVE_DIR"
+echo "cwd=$LIVE_DIR  (run terragrunt from this directory only)"
 
 case "$CMD" in
   plan)
-    echo "Running: terragrunt run-all plan"
-    terragrunt run-all plan
+    echo "Running: terragrunt run-all plan --terragrunt-non-interactive"
+    terragrunt run-all plan --terragrunt-non-interactive
     ;;
   apply)
     if [ "$YES" -ne 1 ]; then
       echo "Apply creates or updates IAM roles in every selected account."
       echo "Re-run: ./scripts/run-all.sh apply --yes"
+      echo "Or:     cd infra/live/accounts && terragrunt run-all apply"
       exit 2
     fi
-    echo "Running: terragrunt run-all apply -auto-approve"
-    terragrunt run-all apply -auto-approve
+    echo "Running: terragrunt run-all apply -auto-approve --terragrunt-non-interactive"
+    terragrunt run-all apply -auto-approve --terragrunt-non-interactive
     ;;
   output)
-    echo "Running: terragrunt run-all output verification"
-    terragrunt run-all output verification
+    echo "Running: terragrunt run-all output verification --terragrunt-non-interactive"
+    terragrunt run-all output verification --terragrunt-non-interactive
     ;;
   verify)
-    echo "Running: terragrunt run-all apply (verify-role, no IAM writes)"
+    echo "Running: terragrunt run-all apply (verify-role module, no IAM writes)"
     if [ "$YES" -eq 1 ]; then
-      terragrunt run-all apply -auto-approve
+      terragrunt run-all apply -auto-approve --terragrunt-non-interactive
     else
-      terragrunt run-all apply
+      terragrunt run-all apply --terragrunt-non-interactive
     fi
-    terragrunt run-all output verification || true
+    terragrunt run-all output verification --terragrunt-non-interactive || true
     ;;
 esac

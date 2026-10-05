@@ -32,3 +32,15 @@ def test_generate_stacks_writes_terragrunt(tmp_path: Path, monkeypatch):
     assert "111111111111" in text
     assert 'include "root"' in text
     assert "verification_dir           = get_terragrunt_dir()" in text
+    assert "terragrunt run-all" in text
+    assert "terragrunt apply" in text
+
+
+def test_root_hcl_is_terragrunt_control_plane():
+    root = Path(__file__).resolve().parents[1] / "infra" / "live" / "root.hcl"
+    text = root.read_text(encoding="utf-8")
+    assert 'generate "provider"' in text
+    assert "terragrunt run-all" in text
+    assert "extra_arguments" in text
+    assert "retryable_errors" in text
+    assert 'execute      = ["terraform"' not in text

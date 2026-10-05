@@ -16,6 +16,7 @@ htmlcov/
 .terragrunt-cache/
 *.tfstate
 *.tfstate.*
+terragrunt_rendered.json
 infra/live/accounts/*
 !infra/live/accounts/.gitkeep
 infra/live/verify-accounts/*

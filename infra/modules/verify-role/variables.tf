@@ -29,6 +29,6 @@ variable "verification_dir" {
 
 variable "fail_if_not_compliant" {
   type        = bool
-  description = "If true, terraform apply fails when the live role is missing or does not match the screenshot policy."
+  description = "If true, terragrunt apply fails when the live role is missing or does not match the screenshot policy."
   default     = false
 }

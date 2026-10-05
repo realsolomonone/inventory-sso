@@ -28,6 +28,7 @@ if [ -z "${AWS_PROFILE:-}" ]; then
 fi
 
 need_cmd terragrunt
+require_terraform_15
 export AWS_PROFILE AWS_REGION ROLE_NAME
 print_env_banner
 echo "profile=$AWS_PROFILE"

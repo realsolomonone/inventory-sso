@@ -48,4 +48,5 @@ def test_root_hcl_is_terragrunt_control_plane():
     assert "expose = true" not in text
     assert 'execute      = ["terraform"' not in text
     assert "role_name" in text
-    assert "inputs = {" in text
+    assert "terraform_version_constraint" in text
+    assert ">= 1.5.0" in text

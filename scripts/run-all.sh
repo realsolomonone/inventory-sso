@@ -61,6 +61,7 @@ case "$CMD" in
 esac
 
 need_cmd terragrunt
+require_terraform_15
 print_env_banner
 echo "Terragrunt all-units: $(tg_all_cmd '<command>')"
 echo

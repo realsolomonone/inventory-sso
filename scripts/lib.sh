@@ -115,6 +115,43 @@ need_cmd() {
   fi
 }
 
+terraform_bin() {
+  printf '%s\n' "${TG_TF_PATH:-terraform}"
+}
+
+terraform_version_line() {
+  "$(terraform_bin)" version 2>/dev/null | head -n1
+}
+
+terraform_is_15() {
+  _line=$(terraform_version_line)
+  _maj=$(printf '%s' "$_line" | sed -n 's/.*v\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\1/p')
+  _min=$(printf '%s' "$_line" | sed -n 's/.*v\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\2/p')
+  [ -n "$_maj" ] || return 1
+  [ -n "$_min" ] || return 1
+  if [ "$_maj" -gt 1 ]; then
+    return 0
+  fi
+  if [ "$_maj" -eq 1 ] && [ "$_min" -ge 5 ]; then
+    return 0
+  fi
+  return 1
+}
+
+require_terraform_15() {
+  _bin=$(terraform_bin)
+  if ! command -v "$_bin" >/dev/null 2>&1; then
+    echo "Terragrunt needs Terraform 1.5+ (check PATH or set TG_TF_PATH). Not found: $_bin" >&2
+    exit 2
+  fi
+  if ! terraform_is_15; then
+    echo "Terragrunt is using Terraform $(terraform_version_line)" >&2
+    echo "This project requires Terraform >= 1.5.0 (v0.12 cannot parse check/precondition or provider source)." >&2
+    echo "Install Terraform 1.5+, put it first on PATH, or: export TG_TF_PATH=/path/to/terraform" >&2
+    exit 2
+  fi
+}
+
 # New Terragrunt CLI (v0.88+): `run-all` is not a command. Use `run --all`.
 # Older CLI (e.g. 0.53): `terragrunt run-all plan`.
 _tg_new_cli=""

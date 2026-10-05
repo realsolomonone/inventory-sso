@@ -35,10 +35,14 @@ else
   check 0 "terragrunt — required for plan/apply across accounts"
 fi
 
-if command -v terraform >/dev/null 2>&1; then
-  echo "  [INFO] terraform $(terraform version | head -n1 | awk '{print $2}') — Terragrunt invokes this; do not run it directly"
+if command -v "$(terraform_bin)" >/dev/null 2>&1; then
+  if terraform_is_15; then
+    check 1 "terraform $(terraform_version_line) ($(command -v "$(terraform_bin)")) — Terragrunt invokes this"
+  else
+    check 0 "terraform $(terraform_version_line) — need >= 1.5.0, not v0.12. Set TG_TF_PATH or fix PATH"
+  fi
 else
-  check 0 "terraform — Terragrunt requires the terraform binary on PATH"
+  check 0 "terraform — Terragrunt requires Terraform >= 1.5.0 on PATH (or TG_TF_PATH)"
 fi
 
 _cfg=$(aws_config_path)

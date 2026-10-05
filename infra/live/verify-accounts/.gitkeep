@@ -1,0 +1,2 @@
+# Generated Terragrunt verify-only stacks. Run:
+#   ./scripts/stacks-generate.sh --mode verify

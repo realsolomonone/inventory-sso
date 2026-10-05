@@ -28,7 +28,7 @@ def test_generate_stacks_writes_terragrunt(tmp_path: Path, monkeypatch):
     assert len(paths) == 1
     text = paths[0].read_text(encoding="utf-8")
     assert 'aws_profile                = "edl-uat"' in text
-    assert "r-edl-resource-inventory" in text
+    assert "include.root.locals.role_name" in text
     assert "111111111111" in text
     assert 'include "root"' in text
     assert "verification_dir           = get_terragrunt_dir()" in text

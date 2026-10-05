@@ -2,19 +2,12 @@
 """
 EDL resource inventory — production CLI.
 
-Creates / operates the r-edl-resource-inventory SSO role (Terragrunt) and
-inventories tagged resources via Resource Groups Tagging API.
+Preferred operator path is shell (no Python required for SSO or Terragrunt):
 
-Uses every IAM Identity Center profile in ~/.aws/config — same SSO contract as
-~/workspace/s3-taggings (python edl_s3_tag_inventory.py login --all).
+  ./scripts/sso-login.sh --all
+  ./scripts/run-all.sh apply --yes
 
-Usage:
-  python edl_resource_inventory.py setup --install
-  python edl_resource_inventory.py doctor
-  python edl_resource_inventory.py login --all
-  python edl_resource_inventory.py profiles --check
-  cd infra/live/r-edl-resource-inventory && AWS_PROFILE=… terragrunt apply
-  terragrunt output verification
+This Python CLI wraps those scripts and still provides optional scan/upload.
 """
 
 from __future__ import annotations
@@ -73,6 +66,18 @@ def resolve_path(path: Path) -> Path:
     return path if path.is_absolute() else APP_ROOT / path
 
 
+def _run_script(name: str, extra: Sequence[str] | None = None) -> ExitCode:
+    script = APP_ROOT / "scripts" / name
+    cmd = ["bash", str(script), *(extra or ())]
+    print(f"running: {' '.join(cmd)}")
+    completed = subprocess.run(cmd, check=False)
+    if completed.returncode == 0:
+        return ExitCode.OK
+    if completed.returncode == 1:
+        return ExitCode.PARTIAL
+    return ExitCode.FAILED
+
+
 def _check_mark(ok: bool) -> str:
     return "PASS" if ok else "FAIL"
 
@@ -127,187 +132,50 @@ def cmd_setup(args: argparse.Namespace) -> ExitCode:
         print(f"Created {env_file} from template (optional).")
     resolve_path(DEFAULT_OUTPUT).mkdir(parents=True, exist_ok=True)
     print("\nSetup step complete. Next:")
-    print("  1. source .venv/bin/activate")
-    print("  2. python edl_resource_inventory.py doctor")
-    print("  3. python edl_resource_inventory.py login --all")
-    print("  4. python edl_resource_inventory.py profiles --check")
+    print("  1. ./scripts/doctor.sh")
+    print("  2. ./scripts/sso-login.sh --all")
+    print("  3. ./scripts/sso-profiles.sh --check")
+    print("  4. ./scripts/run-all.sh apply --yes")
     return ExitCode.OK
 
 
 def cmd_doctor(_args: argparse.Namespace) -> ExitCode:
-    print("\nEDL resource inventory — environment check\n")
-    py_ok = sys.version_info >= (3, 9)
-    print(f"  [{_check_mark(py_ok)}] Python 3.9+ ({sys.version.split()[0]})")
-    deps_ok = True
-    for module in ("boto3", "yaml"):
-        try:
-            __import__(module)
-            print(f"  [{_check_mark(True)}] import {module}")
-        except ImportError:
-            deps_ok = False
-            print(f"  [{_check_mark(False)}] import {module} — run setup --install")
-
-    cfg = resolve_path(DEFAULT_CONFIG)
-    cfg_ok = cfg.is_file()
-    print(f"  [{_check_mark(cfg_ok)}] Inventory config: {cfg}")
-
-    accounts = resolve_path(DEFAULT_ACCOUNTS)
-    accounts_ok = accounts.is_file()
-    print(f"  [{_check_mark(accounts_ok)}] Account catalog: {accounts}")
-
-    module = APP_ROOT / "infra" / "modules" / "r-edl-resource-inventory" / "main.tf"
-    print(f"  [{_check_mark(module.is_file())}] Terraform module: {module}")
-    print(f"  [INFO] terraform: {'on PATH' if _which('terraform') else 'not on PATH (needed for apply)'}")
-    print(f"  [INFO] terragrunt: {'on PATH' if _which('terragrunt') else 'not on PATH (needed for apply)'}")
-
-    aws_config = Path.home() / ".aws" / "config"
-    aws_ok = aws_config.is_file()
-    print(f"  [{_check_mark(aws_ok)}] AWS config: {aws_config}")
-    print(f"  [INFO] Profiles detected: {_count_aws_profiles() if aws_ok else 0}")
-
-    if cfg_ok:
-        try:
-            _ensure_src()
-            from src.config_loader import load_config
-            from src.policy import VIEW_ACTIONS, inventory_policy
-
-            loaded = load_config(cfg, accounts)
-            print(f"  [OK] ticket={loaded.ticket} role={loaded.role.name}")
-            policy = inventory_policy(partition=loaded.partition, account_id="053381801543")
-            assert policy["Statement"][0]["Action"] == VIEW_ACTIONS
-            print("  [OK] IAM policy SIDs ViewSpecificResourceGroup + TaggingReadOnly")
-        except Exception as exc:  # noqa: BLE001
-            print(f"  [FAIL] config load: {exc}")
-            return ExitCode.FAILED
-
-    resolve_path(DEFAULT_OUTPUT).mkdir(parents=True, exist_ok=True)
-    if not (py_ok and deps_ok and cfg_ok and accounts_ok and aws_ok and module.is_file()):
-        print("\nFix FAIL items above, then re-run doctor.")
-        return ExitCode.FAILED
-    print("\nAll checks passed. Run: python edl_resource_inventory.py login --all")
-    return ExitCode.OK
+    return _run_script("doctor.sh")
 
 
 def cmd_login(args: argparse.Namespace) -> ExitCode:
-    """Refresh AWS SSO for every SSO profile in ~/.aws/config (same as s3-taggings)."""
-    _ensure_src()
-    from src.sso_login import login_profiles, sso_profile_count
-
-    if not args.all and not args.profiles and not args.only_expired:
-        print("Specify --all (all SSO profiles), --only-expired, and/or --profiles NAME …")
-        print("Example (same as s3-taggings / tag-audit):")
-        print("  python edl_resource_inventory.py login --all")
+    """Refresh AWS SSO via scripts/sso-login.sh (no Python SSO logic)."""
+    extra: list[str] = []
+    if args.all:
+        extra.append("--all")
+    if args.only_expired:
+        extra.append("--only-expired")
+    if args.dry_run:
+        extra.append("--dry-run")
+    if args.profiles:
+        extra.append("--profiles")
+        extra.extend(args.profiles)
+    if not extra:
+        print("Specify --all, --only-expired, and/or --profiles NAME …")
+        print("Preferred: ./scripts/sso-login.sh --all")
         return ExitCode.FAILED
-
-    sso_count, total = sso_profile_count()
-    print(f"\nEDL SSO login — profiles in ~/.aws/config: {total} total, {sso_count} SSO\n")
-
-    results = login_profiles(
-        args.profiles or None,
-        only_expired=bool(args.only_expired),
-        dry_run=bool(args.dry_run),
-    )
-    skipped = [row for row in results if row.skipped]
-    failed = [row for row in results if not row.ok]
-    attempted_n = sum(1 for row in results if row.attempted or "DRY RUN" in row.message)
-
-    for row in results:
-        if row.skipped and getattr(args, "verbose", 0) < 1:
-            continue
-        mark = "OK" if row.ok else "FAIL"
-        if row.skipped:
-            mark = "SKIP"
-        print(f"  [{mark}] {row.profile}: {row.message}")
-
-    print("-" * 50)
-    print(f"  SSO login attempted: {attempted_n}")
-    print(f"  Skipped:             {len(skipped)}")
-    print(f"  Failed:              {len(failed)}")
-    if failed:
-        return ExitCode.PARTIAL if any(row.ok or row.skipped for row in results) else ExitCode.FAILED
-    print("\nNext: python edl_resource_inventory.py profiles --check")
-    print("Then:  cd infra/live/r-edl-resource-inventory && AWS_PROFILE=… terragrunt apply")
-    return ExitCode.OK
+    return _run_script("sso-login.sh", extra)
 
 
 def cmd_profiles(args: argparse.Namespace) -> ExitCode:
-    _ensure_src()
-    from src.aws_profiles import list_profile_details
-    from src.config_loader import load_catalog
-    from src.credentials import validate_profile
-    from src.identity import lookup_catalog
-
-    details = list_profile_details()
-    if not details:
-        print("No profiles found in ~/.aws/config")
-        return ExitCode.FAILED
-    catalog = load_catalog(resolve_path(DEFAULT_ACCOUNTS))
-    rows = []
-    for item in details:
-        catalog_hit = lookup_catalog(catalog, profile=item.name, account_id=item.account_id)
-        ok, message = validate_profile(item.name) if args.check else (None, "")
-        rows.append(
-            {
-                "profile": item.name,
-                "sso": item.sso,
-                "account_id": item.account_id,
-                "region": item.region,
-                "catalog_name": catalog_hit.name if catalog_hit else "",
-                "valid": ok,
-                "message": message,
-            }
-        )
-    if args.format == "json":
-        print(json.dumps(rows, indent=2))
-        return ExitCode.OK
-    print(f"Profiles ({len(details)}) — source: ~/.aws/config\n")
-    for row in rows:
-        kind = "SSO" if row["sso"] else "static"
-        extra = row["account_id"] or "—"
-        if args.check:
-            status = "OK" if row["valid"] else "INVALID"
-            print(f"  [{status}] {row['profile']} ({kind}, {extra}) — {row['message']}")
-        else:
-            print(f"  {row['profile']} ({kind}, {extra}, {row['region'] or '—'})")
+    extra: list[str] = []
     if args.check:
-        invalid = sum(1 for row in rows if not row["valid"])
-        if invalid:
-            print(f"\n{invalid} profile(s) need attention.")
-            for row in rows:
-                if not row["valid"] and row["sso"]:
-                    print(f"  aws sso login --profile {row['profile']}")
-            return ExitCode.PARTIAL
-    return ExitCode.OK
+        extra.append("--check")
+    if args.format == "json":
+        extra.append("--json")
+    return _run_script("sso-profiles.sh", extra)
 
 
 def cmd_accounts(args: argparse.Namespace) -> ExitCode:
-    _ensure_src()
-    from src.aws_profiles import list_profile_details
-    from src.config_loader import load_catalog
-
-    catalog = load_catalog(resolve_path(DEFAULT_ACCOUNTS))
-    details = list_profile_details()
-    payload = {
-        "role": "r-edl-resource-inventory",
-        "live_source": "~/.aws/config",
-        "catalog": [{"name": row.name, "account_id": row.account_id, "environment": row.environment} for row in catalog],
-        "profiles": [
-            {"profile": row.name, "sso": row.sso, "account_id": row.account_id, "region": row.region}
-            for row in details
-        ],
-    }
+    extra = ["--sso-only"]
     if args.format == "json":
-        print(json.dumps(payload, indent=2))
-        return ExitCode.OK
-    print("\nRole: r-edl-resource-inventory")
-    print("Live Identity Center profiles from ~/.aws/config\n")
-    for row in details:
-        kind = "SSO" if row.sso else "static"
-        print(f"  {row.name:<32} {row.account_id or '—':<16} {kind} {row.region}")
-    if not details:
-        print("  (none found)")
-    print("\nTerragrunt stacks generate one folder per SSO profile.")
-    return ExitCode.OK
+        extra.append("--json")
+    return _run_script("sso-profiles.sh", extra)
 
 
 def _selected_profiles(args: argparse.Namespace, config) -> list[str]:
@@ -324,44 +192,14 @@ def _selected_profiles(args: argparse.Namespace, config) -> list[str]:
 
 
 def cmd_stacks(args: argparse.Namespace) -> ExitCode:
-    _ensure_src()
-    from src.config_loader import load_config
-    from src.stacks import generate_stacks
-
-    config = load_config(resolve_path(DEFAULT_CONFIG), resolve_path(DEFAULT_ACCOUNTS))
-    try:
-        selected = _selected_profiles(args, config)
-    except ValueError as exc:
-        print(f"Profile selection failed: {exc}")
-        return ExitCode.FAILED
-
     if args.stacks_cmd == "generate":
-        if not selected:
-            print("No SSO profiles selected. Check ~/.aws/config.")
-            return ExitCode.FAILED
-        paths = generate_stacks(selected, config)
-        print(f"Wrote {len(paths)} Terragrunt stack(s) under {LIVE_DIR / 'accounts'}")
-        for path in paths:
-            print(f"  {path.relative_to(APP_ROOT)}")
-        print("\nNext: cd infra/live/accounts && terragrunt run-all plan")
-        print("Then:  cd infra/live/accounts && terragrunt run-all apply")
-        print("Then:  cd infra/live/accounts && terragrunt run-all output verification")
-        return ExitCode.OK
-
-    if not _which("terragrunt"):
-        print("terragrunt is not on PATH. Install it, then re-run.")
-        return ExitCode.FAILED
-    if args.stacks_cmd == "apply" and not getattr(args, "confirm", False):
-        print("Apply creates IAM roles in every selected account.")
-        print("Re-run with --confirm to proceed.")
-        return ExitCode.FAILED
-
-    command = ["terragrunt", "run-all", "plan" if args.stacks_cmd == "plan" else "apply"]
-    if args.stacks_cmd == "apply":
-        command.append("-auto-approve")
-    print(f"Running: {' '.join(command)}  (cwd={LIVE_DIR / 'accounts'})")
-    completed = subprocess.run(command, cwd=str(LIVE_DIR / "accounts"), check=False)
-    return ExitCode.OK if completed.returncode == 0 else ExitCode.FAILED
+        return _run_script("stacks-generate.sh")
+    if args.stacks_cmd == "plan":
+        return _run_script("run-all.sh", ["plan"])
+    extra = ["apply"]
+    if getattr(args, "confirm", False):
+        extra.append("--yes")
+    return _run_script("run-all.sh", extra)
 
 
 def _write_reports(inventory, output_dir: Path) -> dict[str, str]:
@@ -514,13 +352,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Deploy r-edl-resource-inventory via Terragrunt and inventory tagged resources across SSO accounts.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
-            "Quick path (SSO same as s3-taggings, then Terragrunt):\n"
-            "  python edl_resource_inventory.py setup --install\n"
-            "  python edl_resource_inventory.py doctor\n"
-            "  python edl_resource_inventory.py login --all\n"
-            "  python edl_resource_inventory.py profiles --check\n"
-            "  cd infra/live/r-edl-resource-inventory && AWS_PROFILE=PROFILE terragrunt apply\n"
-            "  terragrunt output verification\n"
+            "Quick path (shell + Terragrunt; Python is optional):\n"
+            "  ./scripts/doctor.sh\n"
+            "  ./scripts/sso-login.sh --all\n"
+            "  ./scripts/sso-profiles.sh --check\n"
+            "  ./scripts/run-all.sh apply --yes\n"
         ),
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")

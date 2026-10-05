@@ -1,8 +1,11 @@
-"""Generate Terragrunt stacks for every SSO profile in ~/.aws/config."""
+"""Generate Terragrunt stacks for every SSO profile in ~/.aws/config.
+
+Operator path is ./scripts/stacks-generate.sh. This module is kept for tests
+and matches the same template placeholders.
+"""
 
 from __future__ import annotations
 
-import json
 import re
 import shutil
 from pathlib import Path
@@ -30,10 +33,7 @@ def render_stack(profile: AwsProfile, config: InventoryConfig) -> str:
     return (
         template.replace("{{profile}}", profile.name)
         .replace("{{region}}", region)
-        .replace("{{role_name}}", config.role.name)
         .replace("{{resource_group_account_id}}", rg_account)
-        .replace("{{trusted_principal_arns}}", json.dumps(config.role.trusted_principal_arns))
-        .replace("{{trusted_source_account_ids}}", json.dumps(config.role.trusted_source_account_ids))
     )
 
 

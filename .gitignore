@@ -18,6 +18,8 @@ htmlcov/
 *.tfstate.*
 infra/live/accounts/*
 !infra/live/accounts/.gitkeep
+infra/live/verify-accounts/*
+!infra/live/verify-accounts/.gitkeep
 infra/live/**/verification.json
 infra/live/**/verification.md
 crash.log

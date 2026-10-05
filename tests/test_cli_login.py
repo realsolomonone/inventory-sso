@@ -1,10 +1,9 @@
-import json
 from pathlib import Path
 
 from src.sso_login import login_profiles
 
 
-def test_cli_login_all_dry_run_matches_s3_taggings(tmp_path: Path, monkeypatch, capsys):
+def test_python_login_all_dry_run_only_sso_profiles(tmp_path: Path, monkeypatch):
     aws = tmp_path / ".aws"
     aws.mkdir()
     (aws / "config").write_text(
@@ -23,11 +22,3 @@ def test_cli_login_all_dry_run_matches_s3_taggings(tmp_path: Path, monkeypatch, 
     by_name = {row.profile: row for row in results}
     assert by_name["edl-uat"].message == "DRY RUN: aws sso login --profile edl-uat"
     assert by_name["static-keys"].skipped
-
-    import edl_resource_inventory as cli
-
-    code = cli.main(["login", "--all", "--dry-run"])
-    captured = capsys.readouterr()
-    assert code == 0
-    assert "aws sso login --profile edl-uat" in captured.out
-    assert "python edl_resource_inventory.py profiles --check" in captured.out

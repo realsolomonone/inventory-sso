@@ -1,17 +1,21 @@
-# Per-account create + verify stack.
-# Fill in by copying this file, or let `python edl_resource_inventory.py stacks generate` write one per SSO profile.
+# Per-account create + verify stack. {{profile}} / {{region}} / {{resource_group_account_id}}
+# are filled by ./scripts/stacks-generate.sh. Role name and tags stay env-driven
+# so the same stacks can be reused for another project or environment.
 
 include "root" {
-  path = find_in_parent_folders("root.hcl")
+  path   = find_in_parent_folders("root.hcl")
+  expose = true
 }
 
 inputs = {
   aws_profile                = "{{profile}}"
   aws_region                 = "{{region}}"
-  role_name                  = "{{role_name}}"
+  role_name                  = include.root.locals.role_name
+  role_description           = include.root.locals.role_description
   resource_group_account_id  = "{{resource_group_account_id}}"
-  trusted_principal_arns     = {{trusted_principal_arns}}
-  trusted_source_account_ids = {{trusted_source_account_ids}}
+  trusted_principal_arns     = include.root.locals.trusted_principal_arns
+  trusted_source_account_ids = include.root.locals.trusted_source_account_ids
+  tags                       = include.root.locals.common_tags
   verification_dir           = get_terragrunt_dir()
   fail_if_not_compliant      = get_env("TG_FAIL_IF_NOT_COMPLIANT", "false") == "true"
 }

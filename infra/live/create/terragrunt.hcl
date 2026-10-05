@@ -1,7 +1,9 @@
 # Create (and verify) the inventory IAM role in the account for AWS_PROFILE.
-# Same unit as ../create — kept so existing paths continue to work.
+# Role name / region / tags come from config/envs/*.env — not hard-coded.
 #
+#   ./scripts/sso-login.sh --all
 #   AWS_PROFILE=YOUR_PROFILE ./scripts/run-one.sh apply
+#   AWS_PROFILE=YOUR_PROFILE AWS_REGION=us-gov-east-1 terragrunt apply
 
 include "root" {
   path   = find_in_parent_folders("root.hcl")

@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Apply / verify a single AWS_PROFILE using the reusable live units.
+#
+#   AWS_PROFILE=edl-addcp-dev-ew ./scripts/run-one.sh apply
+#   AWS_PROFILE=edl-addcp-dev-ew ./scripts/run-one.sh verify
+#   ENVIRONMENT=commercial AWS_PROFILE=NAME ./scripts/run-one.sh plan
+
+set -euo pipefail
+. "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib.sh"
+load_project_env
+
+CMD="${1:-}"
+YES=0
+shift || true
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --yes|-auto-approve) YES=1; shift ;;
+    *) echo "Unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+if [ -z "${AWS_PROFILE:-}" ]; then
+  echo "Set AWS_PROFILE to an IAM Identity Center profile name." >&2
+  echo "Example: AWS_PROFILE=edl-addcp-dev-ew ./scripts/run-one.sh apply" >&2
+  exit 2
+fi
+
+need_cmd terragrunt
+export AWS_PROFILE AWS_REGION ROLE_NAME
+print_env_banner
+echo "profile=$AWS_PROFILE"
+echo
+
+case "$CMD" in
+  plan|apply)
+    cd "$ROOT_DIR/infra/live/create"
+    ;;
+  verify|output)
+    cd "$ROOT_DIR/infra/live/verify"
+    ;;
+  *)
+    echo "Usage: AWS_PROFILE=NAME ./scripts/run-one.sh <plan|apply|verify|output> [--yes]" >&2
+    exit 2
+    ;;
+esac
+
+echo "cwd=$(pwd)"
+case "$CMD" in
+  plan) terragrunt plan ;;
+  apply)
+    if [ "$YES" -eq 1 ]; then
+      terragrunt apply -auto-approve
+    else
+      terragrunt apply
+    fi
+    terragrunt output verification || true
+    ;;
+  verify)
+    if [ "$YES" -eq 1 ]; then
+      terragrunt apply -auto-approve
+    else
+      terragrunt apply
+    fi
+    terragrunt output verification || true
+    ;;
+  output) terragrunt output verification ;;
+esac

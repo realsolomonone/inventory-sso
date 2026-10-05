@@ -84,7 +84,7 @@ locals {
 check "live_role_matches_screenshot_policy" {
   assert {
     condition     = local.overall_pass
-    error_message = "r-edl-resource-inventory in account ${local.account_id} is ${local.verification.overall_status}. See verification.json."
+    error_message = "${var.role_name} in account ${local.account_id} is ${local.verification.overall_status}. See verification.json."
   }
 }
 
@@ -93,7 +93,7 @@ resource "terraform_data" "compliance_gate" {
   lifecycle {
     precondition {
       condition     = local.overall_pass
-      error_message = "r-edl-resource-inventory in account ${local.account_id} is ${local.verification.overall_status}. See verification.json."
+      error_message = "${var.role_name} in account ${local.account_id} is ${local.verification.overall_status}. See verification.json."
     }
   }
 }

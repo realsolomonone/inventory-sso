@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Thin wrapper around `terragrunt run-all` for every generated account stack.
-# Prefer the Terragrunt commands directly:
+# Thin wrapper around Terragrunt for every generated account stack.
+# Current Terragrunt CLI:
 #
 #   cd infra/live/accounts
-#   terragrunt run-all plan
-#   terragrunt run-all apply
-#   terragrunt run-all output verification
+#   terragrunt run --all plan
+#   terragrunt run --all apply
+#   terragrunt run --all output verification
+#
+# Older Terragrunt: terragrunt run-all plan  (this script detects both)
 
 set -euo pipefail
 . "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib.sh"
@@ -22,23 +24,23 @@ while [ $# -gt 0 ]; do
 done
 
 usage() {
-  cat <<'EOF'
-Usage: ./scripts/run-all.sh <plan|apply|output|verify> [--yes]
+  cat <<EOF
+Usage: ./scripts/run-all.sh <plan|apply|output|verify|destroy> [--yes]
 
-Equivalent Terragrunt (preferred):
+Equivalent Terragrunt (current CLI):
 
   cd infra/live/accounts
-  terragrunt run-all plan
-  terragrunt run-all apply
-  terragrunt run-all output verification
+  $(tg_all_cmd plan)
+  $(tg_all_cmd apply)
+  $(tg_all_cmd output verification)
 
   cd infra/live/verify-accounts
-  terragrunt run-all apply
+  $(tg_all_cmd apply)
 EOF
 }
 
 case "$CMD" in
-  plan|apply|output)
+  plan|apply|output|destroy)
     MODE=create
     LIVE_DIR="$ROOT_DIR/infra/live/accounts"
     ;;
@@ -47,10 +49,12 @@ case "$CMD" in
     LIVE_DIR="$ROOT_DIR/infra/live/verify-accounts"
     ;;
   -h|--help|"")
+    need_cmd terragrunt
     usage
     exit 2
     ;;
   *)
+    need_cmd terragrunt
     usage >&2
     exit 2
     ;;
@@ -58,6 +62,7 @@ esac
 
 need_cmd terragrunt
 print_env_banner
+echo "Terragrunt all-units: $(tg_all_cmd '<command>')"
 echo
 
 if [ ! -d "$LIVE_DIR" ] || ! ls -d "$LIVE_DIR"/*/ >/dev/null 2>&1; then
@@ -80,30 +85,32 @@ echo "cwd=$LIVE_DIR  (run terragrunt from this directory only)"
 
 case "$CMD" in
   plan)
-    echo "Running: terragrunt run-all plan --terragrunt-non-interactive"
-    terragrunt run-all plan --terragrunt-non-interactive
+    tg_run_all plan
     ;;
   apply)
     if [ "$YES" -ne 1 ]; then
       echo "Apply creates or updates IAM roles in every selected account."
       echo "Re-run: ./scripts/run-all.sh apply --yes"
-      echo "Or:     cd infra/live/accounts && terragrunt run-all apply"
+      echo "Or:     cd infra/live/accounts && $(tg_all_cmd apply)"
       exit 2
     fi
-    echo "Running: terragrunt run-all apply -auto-approve --terragrunt-non-interactive"
-    terragrunt run-all apply -auto-approve --terragrunt-non-interactive
+    tg_run_all apply
     ;;
   output)
-    echo "Running: terragrunt run-all output verification --terragrunt-non-interactive"
-    terragrunt run-all output verification --terragrunt-non-interactive
+    tg_run_all output verification
+    ;;
+  destroy)
+    if [ "$YES" -ne 1 ]; then
+      echo "Destroy deletes r-edl-resource-inventory in every selected account."
+      echo "Re-run: ./scripts/run-all.sh destroy --yes"
+      echo "Or:     cd infra/live/accounts && $(tg_all_cmd destroy)"
+      exit 2
+    fi
+    tg_run_all destroy
     ;;
   verify)
-    echo "Running: terragrunt run-all apply (verify-role module, no IAM writes)"
-    if [ "$YES" -eq 1 ]; then
-      terragrunt run-all apply -auto-approve --terragrunt-non-interactive
-    else
-      terragrunt run-all apply --terragrunt-non-interactive
-    fi
-    terragrunt run-all output verification --terragrunt-non-interactive || true
+    echo "Verify-role module (no IAM writes)"
+    tg_run_all apply
+    tg_run_all output verification || true
     ;;
 esac

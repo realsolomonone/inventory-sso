@@ -3,8 +3,8 @@
 # Keep separate from create stacks so run-all state cannot destroy the role.
 #
 #   cd infra/live/verify-accounts
-#   terragrunt run-all apply
-#   terragrunt run-all output verification
+#   terragrunt run --all apply
+#   terragrunt run --all output verification
 
 include "root" {
   path   = find_in_parent_folders("root.hcl")

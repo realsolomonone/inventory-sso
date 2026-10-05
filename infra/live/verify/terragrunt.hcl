@@ -1,5 +1,5 @@
 # Optional single-account data-only verify. All-account verify:
-#   cd infra/live/verify-accounts && terragrunt run-all apply
+#   cd infra/live/verify-accounts && terragrunt run --all apply
 #
 #   AWS_PROFILE=YOUR_PROFILE AWS_REGION=us-gov-east-1 terragrunt apply
 #   terragrunt output verification

@@ -1,5 +1,5 @@
 # Optional single-account unit when AWS_PROFILE is already set.
-# All-account deploys use infra/live/accounts + `terragrunt run-all`.
+# All-account deploys use infra/live/accounts + `terragrunt run --all`.
 #
 #   AWS_PROFILE=YOUR_PROFILE AWS_REGION=us-gov-east-1 terragrunt apply
 #   terragrunt output verification

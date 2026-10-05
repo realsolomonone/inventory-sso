@@ -1,7 +1,7 @@
 # Copy to infra/live/accounts/<profile>/terragrunt.hcl, or run ./scripts/stacks-generate.sh
 #
 #   cd infra/live/accounts
-#   terragrunt run-all apply
+#   terragrunt run --all apply
 
 include "root" {
   path   = find_in_parent_folders("root.hcl")

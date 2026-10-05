@@ -82,5 +82,5 @@ fi
 echo "All required checks passed."
 echo "Next: ./scripts/sso-login.sh --all"
 echo "Then: ./scripts/stacks-generate.sh"
-echo "Then: cd infra/live/accounts && terragrunt run-all apply"
+echo "Then: cd infra/live/accounts && $(tg_all_cmd apply)"
 exit 0

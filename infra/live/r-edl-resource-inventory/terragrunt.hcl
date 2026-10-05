@@ -1,4 +1,4 @@
-# Same as ../create. Prefer infra/live/accounts + terragrunt run-all for every account.
+# Same as ../create. Prefer infra/live/accounts + terragrunt run --all for every account.
 
 include "root" {
   path   = find_in_parent_folders("root.hcl")

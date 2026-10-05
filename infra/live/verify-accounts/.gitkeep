@@ -1,4 +1,4 @@
 # Generated Terragrunt verify-only stacks — one directory per SSO account.
 # From this folder only:
-#   terragrunt run-all apply
-#   terragrunt run-all output verification
+#   terragrunt run --all apply
+#   terragrunt run --all output verification

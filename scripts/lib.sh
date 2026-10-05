@@ -115,6 +115,41 @@ need_cmd() {
   fi
 }
 
+# New Terragrunt CLI (v0.88+): `run-all` is not a command. Use `run --all`.
+# Older CLI (e.g. 0.53): `terragrunt run-all plan`.
+_tg_new_cli=""
+
+tg_uses_run_flag() {
+  if [ -z "$_tg_new_cli" ]; then
+    if ! command -v terragrunt >/dev/null 2>&1; then
+      _tg_new_cli=1
+    elif terragrunt run --help 2>/dev/null | grep -q -- '--all'; then
+      _tg_new_cli=1
+    else
+      _tg_new_cli=0
+    fi
+  fi
+  [ "$_tg_new_cli" = "1" ]
+}
+
+tg_all_cmd() {
+  if tg_uses_run_flag; then
+    printf 'terragrunt run --all %s' "$*"
+  else
+    printf 'terragrunt run-all %s' "$*"
+  fi
+}
+
+tg_run_all() {
+  if tg_uses_run_flag; then
+    echo "Running: terragrunt run --all --non-interactive $*"
+    terragrunt run --all --non-interactive "$@"
+  else
+    echo "Running: terragrunt run-all $* --terragrunt-non-interactive"
+    terragrunt run-all "$@" --terragrunt-non-interactive
+  fi
+}
+
 aws_config_path() {
   printf '%s\n' "${AWS_CONFIG_FILE:-$HOME/.aws/config}"
 }

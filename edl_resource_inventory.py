@@ -5,7 +5,8 @@ EDL resource inventory — production CLI.
 Preferred operator path is shell (no Python required for SSO or Terragrunt):
 
   ./scripts/sso-login.sh --all
-  ./scripts/run-all.sh apply --yes
+  ./scripts/stacks-generate.sh
+  cd infra/live/accounts && terragrunt run --all apply
 
 This Python CLI wraps those scripts and still provides optional scan/upload.
 """
@@ -135,7 +136,7 @@ def cmd_setup(args: argparse.Namespace) -> ExitCode:
     print("  1. ./scripts/doctor.sh")
     print("  2. ./scripts/sso-login.sh --all")
     print("  3. ./scripts/stacks-generate.sh")
-    print("  4. cd infra/live/accounts && terragrunt run-all apply")
+    print("  4. cd infra/live/accounts && terragrunt run --all apply")
     return ExitCode.OK
 
 
@@ -355,7 +356,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Quick path (Terragrunt across all SSO accounts):\n"
             "  ./scripts/sso-login.sh --all\n"
             "  ./scripts/stacks-generate.sh\n"
-            "  cd infra/live/accounts && terragrunt run-all apply\n"
+            "  cd infra/live/accounts && terragrunt run --all apply\n"
         ),
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -390,8 +391,8 @@ def build_parser() -> argparse.ArgumentParser:
     stacks.add_argument("--include-static", action="store_true")
     stacks_sub = stacks.add_subparsers(dest="stacks_cmd", required=True)
     stacks_sub.add_parser("generate", help="Write infra/live/accounts/<profile>/terragrunt.hcl")
-    stacks_sub.add_parser("plan", help="terragrunt run-all plan")
-    apply = stacks_sub.add_parser("apply", help="terragrunt run-all apply")
+    stacks_sub.add_parser("plan", help="terragrunt run --all plan")
+    apply = stacks_sub.add_parser("apply", help="terragrunt run --all apply")
     apply.add_argument("--confirm", action="store_true", help="Required — creates IAM roles")
     stacks.set_defaults(func=cmd_stacks)
 

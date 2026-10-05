@@ -1,5 +1,5 @@
 # Terragrunt control plane for every live unit (one stack per AWS account).
-# Operators run `terragrunt run-all` from infra/live/accounts — not `terraform`.
+# Operators run `terragrunt run --all` from infra/live/accounts — not `terraform`.
 # IAM resources live in infra/modules/*; this file wires provider, retries, and inputs.
 
 locals {

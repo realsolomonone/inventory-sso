@@ -3,10 +3,10 @@
 Terragrunt project that creates IAM role **r-edl-resource-inventory** in every IAM Identity Center account.
 
 **SSO (AWS CLI):** `./scripts/sso-login.sh --all`  
-**All accounts:** `cd infra/live/accounts && terragrunt run-all apply`  
+**All accounts:** `cd infra/live/accounts && terragrunt run --all apply`  
 **One account:** `cd infra/live/accounts/<profile> && terragrunt apply`
 
-Do not run `terraform` against this repo. Terragrunt generates the AWS provider and applies the IAM module per account. Python is optional (scan reports only).
+Current Terragrunt no longer has a `run-all` command. Use `terragrunt run --all …` (this is the CLI redesign). Do not run `terraform` against this repo.
 
 Run from this directory. AWS CLI v2 and Terragrunt are required (Terragrunt calls the terraform binary).
 
@@ -22,14 +22,16 @@ cd ~/workspace/inventory-sso
 ./scripts/stacks-generate.sh
 
 cd infra/live/accounts
-terragrunt run-all plan
-terragrunt run-all apply
-terragrunt run-all output verification
+terragrunt run --all plan
+terragrunt run --all apply
+terragrunt run --all output verification
 ```
 
 If a profile is still **INVALID**: `aws sso login --profile PROFILE-NAME`.
 
-Always run `run-all` from `infra/live/accounts` (or `infra/live/verify-accounts`), never from `infra/live`.
+Always run `--all` from `infra/live/accounts` (or `infra/live/verify-accounts`), never from `infra/live`.
+
+If you see `unknown command: "run-all"`, you are on the new CLI. Use `terragrunt run --all plan`, not `terragrunt run-all plan`.
 
 ---
 
@@ -60,14 +62,14 @@ The deploying permission set must be allowed to create IAM roles (typically Admi
 ```bash
 ./scripts/stacks-generate.sh
 cd infra/live/accounts
-terragrunt run-all plan
-terragrunt run-all apply
-terragrunt run-all output verification
+terragrunt run --all plan
+terragrunt run --all apply
+terragrunt run --all output verification
 ```
 
 `stacks-generate.sh` writes `infra/live/accounts/<profile>/terragrunt.hcl` for each matching SSO profile. Each unit includes `infra/live/root.hcl` (provider, retries, tags, role name).
 
-Convenience wrapper (same commands): `./scripts/run-all.sh apply --yes`
+Convenience wrapper (detects new vs old CLI): `./scripts/run-all.sh apply --yes`
 
 ---
 
@@ -90,19 +92,15 @@ AWS_PROFILE=YOUR_PROFILE AWS_REGION=us-gov-east-1 terragrunt apply
 terragrunt output verification
 ```
 
-Apply writes stdout (`terragrunt output verification`), `verification.md`, and `verification.json`.
-
 ---
 
 ## 4. Verify later (no IAM writes)
 
-Every account (separate stacks so state cannot destroy the role):
-
 ```bash
 ./scripts/stacks-generate.sh --mode verify
 cd infra/live/verify-accounts
-terragrunt run-all apply
-terragrunt run-all output verification
+terragrunt run --all apply
+terragrunt run --all output verification
 ```
 
 One account:
@@ -113,24 +111,38 @@ AWS_PROFILE=YOUR_PROFILE AWS_REGION=us-gov-east-1 terragrunt apply
 terragrunt output verification
 ```
 
-Overall status is `PASS`, `FAIL`, or `MISSING`. To fail CI:
+---
+
+## 5. Destroy if you have to
+
+Create stacks only (`infra/live/accounts`), never verify-accounts:
 
 ```bash
-TG_FAIL_IF_NOT_COMPLIANT=true AWS_PROFILE=YOUR_PROFILE terragrunt apply
+cd infra/live/accounts/YOUR_PROFILE
+terragrunt run -- plan -destroy
+terragrunt destroy
 ```
+
+Every account:
+
+```bash
+cd infra/live/accounts
+terragrunt run --all -- plan -destroy
+terragrunt run --all destroy
+```
+
+Or: `./scripts/run-all.sh destroy --yes`
 
 ---
 
 ## Reuse for another project or environment
-
-Copy an env file, change role / region / tags, then run the same Terragrunt commands:
 
 ```bash
 cp config/envs/commercial.example.env config/envs/commercial.env
 ENVIRONMENT=commercial ./scripts/sso-login.sh --all
 ENVIRONMENT=commercial ./scripts/stacks-generate.sh
 cd infra/live/accounts
-ENVIRONMENT=commercial terragrunt run-all apply
+ENVIRONMENT=commercial terragrunt run --all apply
 ```
 
 | Variable | What it changes |
@@ -156,10 +168,11 @@ ENVIRONMENT=commercial terragrunt run-all apply
 | Refresh SSO | `./scripts/sso-login.sh --all` |
 | Check sessions | `./scripts/sso-profiles.sh --check` |
 | Generate live units | `./scripts/stacks-generate.sh` |
-| Plan all accounts | `cd infra/live/accounts && terragrunt run-all plan` |
-| Apply all accounts | `cd infra/live/accounts && terragrunt run-all apply` |
+| Plan all accounts | `cd infra/live/accounts && terragrunt run --all plan` |
+| Apply all accounts | `cd infra/live/accounts && terragrunt run --all apply` |
 | One account | `cd infra/live/accounts/<profile> && terragrunt apply` |
-| Verify all | `cd infra/live/verify-accounts && terragrunt run-all apply` |
+| Verify all | `cd infra/live/verify-accounts && terragrunt run --all apply` |
+| Destroy all | `cd infra/live/accounts && terragrunt run --all destroy` |
 
 ---
 
@@ -175,8 +188,6 @@ The module Terragrunt applies attaches this inline policy. The screenshot used a
 Trust: this account’s IAM Identity Center roles (`aws-reserved/sso.amazonaws.com/*`), plus optional extra ARNs.
 
 Terragrunt root: `infra/live/root.hcl`  
-Create module: `infra/modules/r-edl-resource-inventory/`  
-Verify module: `infra/modules/verify-role/`  
 Live units: `infra/live/accounts/<profile>/`
 
 ---
@@ -188,8 +199,6 @@ python3 edl_resource_inventory.py setup --install
 source .venv/bin/activate
 python edl_resource_inventory.py scan
 ```
-
-Scan is read-only. The only IAM write is `terragrunt apply` / `terragrunt run-all apply`.
 
 ---
 
@@ -215,10 +224,11 @@ source .venv/bin/activate && python -m pytest tests/ -q
 
 | Problem | Fix |
 |---------|-----|
+| `unknown command: "run-all"` | Use `terragrunt run --all plan` (new CLI). Do not use `terragrunt run-all`. |
 | No profiles / INVALID | `./scripts/sso-login.sh --all` then `aws sso login --profile NAME` |
 | AccessDenied on apply | Deploying SSO role needs `iam:CreateRole` / `iam:PutRolePolicy` |
 | Verify overall `MISSING` | Run create apply first |
-| run-all found extra stacks | Run from `infra/live/accounts`, not `infra/live` |
+| extra stacks found | Run from `infra/live/accounts`, not `infra/live` |
 | No stacks generated | Add SSO profiles to `~/.aws/config`, then `./scripts/stacks-generate.sh` |
 | Wrong accounts selected | Set `PROFILE_PREFIX`, `SSO_START_URL`, or `EXCLUDE_PROFILES` |
 | terragrunt not on PATH | Install Terragrunt; `./scripts/doctor.sh` will FAIL until it is |

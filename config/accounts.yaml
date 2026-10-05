@@ -1,0 +1,9 @@
+# Optional human catalog. Live scans and Terragrunt stacks still use every
+# IAM Identity Center profile in ~/.aws/config — same source as s3-taggings.
+
+source: r-edl-resource-inventory
+notes: >
+  Screenshot policy used account 053381801543 as an example Resource Groups ARN.
+  Stacks substitute each target account ID unless role.resource_group_account_id is set.
+
+accounts: []

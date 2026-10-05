@@ -1,0 +1,15 @@
+# ${role_name} verification
+
+**Overall:** ${overall_status}  
+**Account:** `${account_id}`  
+**Partition:** `${partition}`  
+**Role ARN:** `${role_arn}`  
+**Resource Groups ARN:** `${resource_groups_arn}`
+
+| Check | Result | Expected | Found |
+|-------|--------|----------|-------|
+%{for c in checks~}
+| ${c.name} | **${c.result}** | ${c.expected} | ${c.found} |
+%{endfor~}
+
+Screenshot SIDs: `ViewSpecificResourceGroup`, `TaggingReadOnly`.

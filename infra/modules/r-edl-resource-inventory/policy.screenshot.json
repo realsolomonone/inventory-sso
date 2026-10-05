@@ -1,0 +1,27 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ViewSpecificResourceGroup",
+      "Effect": "Allow",
+      "Action": [
+        "resource-groups:GetGroup",
+        "resource-groups:GetGroupQuery",
+        "resource-groups:ListGroupResources",
+        "resource-groups:ListGroups",
+        "resource-groups:SearchResources"
+      ],
+      "Resource": "arn:aws-us-gov:resource-groups:*:ACCOUNT_ID:*/*"
+    },
+    {
+      "Sid": "TaggingReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "tag:GetResources",
+        "tag:GetTagKeys",
+        "tag:GetTagValues"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

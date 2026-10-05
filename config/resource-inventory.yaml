@@ -1,0 +1,87 @@
+# EDL resource inventory — r-edl-resource-inventory SSO role + tagged-resource scan
+# Live accounts always come from ~/.aws/config (same contract as s3-taggings / tag-audit).
+
+ticket: EDL-RESOURCE-INVENTORY
+program: EDL
+title: Create r-edl-resource-inventory SSO role and inventory tagged resources
+labels:
+  - SCT
+  - edl-finops
+
+partition: aws-us-gov
+home_region: us-gov-east-1
+
+identity:
+  skip_non_sso: true
+  exclude_profiles: []
+
+role:
+  name: r-edl-resource-inventory
+  description: Read-only Resource Groups and Resource Groups Tagging API access for EDL inventory
+  max_session_duration: 28800
+  # Screenshot used a single account ARN. Per-account deploy substitutes the
+  # target account. Override here only if Resource Groups live in one hub account.
+  resource_group_account_id: ""
+  # Extra principals allowed to assume the role (IAM ARNs). Empty = this
+  # account's IAM Identity Center roles (aws-reserved/sso.amazonaws.com/*).
+  trusted_principal_arns: []
+  trusted_source_account_ids: []
+
+scan:
+  max_workers: 4
+  include_resource_groups: true
+  # Empty = every tagged resource Resource Groups Tagging API returns.
+  resource_type_filters: []
+  regions: []
+
+tags:
+  required:
+    - key: Project Name
+      aliases: [ProjectName, project_name]
+      pattern: '^edl_[a-z0-9_]+$'
+      example: edl_abcd
+      hint: Lowercase edl_ plus the project slug
+    - key: ProjectNumber
+      aliases: [Project Number, project_number]
+      pattern: '^fs[0-9]{10}$'
+      example: fs0000000001
+      hint: fs followed by 10 digits
+    - key: Organization
+      aliases: [organisation]
+      pattern: '^[a-z0-9]+(:[a-z0-9]+)+$'
+      example: census:ocio:adsd
+      hint: Colon-separated org path
+    - key: CostAllocation
+      aliases: [Cost Allocation, cost_allocation]
+      pattern: '^[a-z0-9]+:[a-z0-9]+$'
+      example: adsd:edl
+      hint: org:program
+    - key: Environment
+      aliases: [Env, environment]
+      allowed_values: [dev, qa, uat, staging, prod, test, sandbox, common]
+      example: dev
+      hint: One of dev, qa, uat, staging, prod, test, sandbox, common
+    - key: Project Role
+      aliases: [ProjectRole, project_role]
+      pattern: '^edl_[a-z0-9_]+$'
+      example: edl_abcd_xyz
+      hint: Lowercase edl_ role slug
+    - key: edl:project_id
+      aliases: [edl_project_id, edl-project-id, Project ID]
+      pattern: '^[0-9]+$'
+      example: "9999999"
+      hint: Numeric DMS project id
+    - key: Title Data
+      aliases: [TitleData, title_data, Title]
+      pattern: '^[a-z0-9_]+(/[a-z0-9_]+)*$'
+      example: title_13/title_26
+      hint: Slash-separated title codes
+    - key: boc:created_by
+      aliases: [bocreated_by, boc_created_by, created_by]
+      pattern: '^[a-z0-9]+$'
+      example: abcde001
+      hint: Provisioner user or automation id
+
+upload:
+  prefix: edl-resource-inventory
+  server_side_encryption: AES256

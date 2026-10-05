@@ -1,0 +1,2 @@
+# Generated Terragrunt stacks. Run:
+#   python edl_resource_inventory.py stacks generate

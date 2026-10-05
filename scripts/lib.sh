@@ -115,20 +115,10 @@ need_cmd() {
   fi
 }
 
-terraform_bin() {
-  printf '%s\n' "${TG_TF_PATH:-terraform}"
-}
-
-terraform_version_line() {
-  "$(terraform_bin)" version 2>/dev/null | head -n1
-}
-
-terraform_is_15() {
-  _line=$(terraform_version_line)
-  _maj=$(printf '%s' "$_line" | sed -n 's/.*v\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\1/p')
-  _min=$(printf '%s' "$_line" | sed -n 's/.*v\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\2/p')
-  [ -n "$_maj" ] || return 1
-  [ -n "$_min" ] || return 1
+_tf_line_is_15() {
+  _maj=$(printf '%s' "$1" | sed -n 's/.*v\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\1/p')
+  _min=$(printf '%s' "$1" | sed -n 's/.*v\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\2/p')
+  [ -n "$_maj" ] && [ -n "$_min" ] || return 1
   if [ "$_maj" -gt 1 ]; then
     return 0
   fi
@@ -138,18 +128,101 @@ terraform_is_15() {
   return 1
 }
 
+_tf_bin_is_15() {
+  [ -n "$1" ] || return 1
+  if [ ! -x "$1" ] && ! command -v "$1" >/dev/null 2>&1; then
+    return 1
+  fi
+  _tf_line_is_15 "$("$1" version 2>/dev/null | head -n1)"
+}
+
+discover_terraform_15() {
+  _seen="|"
+  _add_cand() {
+    case "$_seen" in
+      *"|$1|"*) return 0 ;;
+    esac
+    _seen="${_seen}$1|"
+    _cands="${_cands}
+$1"
+  }
+
+  _cands=""
+  [ -n "${TG_TF_PATH:-}" ] && _add_cand "$TG_TF_PATH"
+
+  if _out=$(type -a -p terraform 2>/dev/null); then
+    OLDIFS=$IFS
+    IFS='
+'
+    # shellcheck disable=SC2086
+    set -- $_out
+    IFS=$OLDIFS
+    for _p in "$@"; do
+      [ -n "$_p" ] && _add_cand "$_p"
+    done
+  fi
+
+  for _n in terraform terraform-1.11 terraform-1.10 terraform-1.9 terraform-1.8 terraform-1.7 terraform-1.6 terraform-1.5 terraform1.5; do
+    _p=$(command -v "$_n" 2>/dev/null) || continue
+    _add_cand "$_p"
+  done
+
+  for _p in \
+    /opt/homebrew/bin/terraform \
+    /usr/local/bin/terraform \
+    /opt/terraform/bin/terraform \
+    "$HOME/bin/terraform" \
+    "$HOME/.local/bin/terraform" \
+    /usr/bin/terraform
+  do
+    [ -x "$_p" ] && _add_cand "$_p"
+  done
+
+  OLDIFS=$IFS
+  IFS='
+'
+  # shellcheck disable=SC2086
+  set -- $_cands
+  IFS=$OLDIFS
+  for _c in "$@"; do
+    [ -n "$_c" ] || continue
+    if _tf_bin_is_15 "$_c"; then
+      printf '%s\n' "$_c"
+      return 0
+    fi
+  done
+  return 1
+}
+
+terraform_bin() {
+  if [ -n "${_TF_BIN_CACHED:-}" ]; then
+    printf '%s\n' "$_TF_BIN_CACHED"
+    return 0
+  fi
+  _TF_BIN_CACHED=$(discover_terraform_15) || return 1
+  export TG_TF_PATH="$_TF_BIN_CACHED"
+  printf '%s\n' "$_TF_BIN_CACHED"
+}
+
+terraform_version_line() {
+  _b=$(terraform_bin 2>/dev/null) || _b="${TG_TF_PATH:-terraform}"
+  "$_b" version 2>/dev/null | head -n1
+}
+
+terraform_is_15() {
+  terraform_bin >/dev/null 2>&1
+}
+
 require_terraform_15() {
-  _bin=$(terraform_bin)
-  if ! command -v "$_bin" >/dev/null 2>&1; then
-    echo "Terragrunt needs Terraform 1.5+ (check PATH or set TG_TF_PATH). Not found: $_bin" >&2
+  if ! _b=$(terraform_bin); then
+    echo "Terraform >= 1.5.0 not found. PATH terraform is often v0.12.31 on iebcloud." >&2
+    echo "  terraform version" >&2
+    echo "  module avail terraform   # then: module load terraform/1.5" >&2
+    echo "  export TG_TF_PATH=/absolute/path/to/terraform" >&2
     exit 2
   fi
-  if ! terraform_is_15; then
-    echo "Terragrunt is using Terraform $(terraform_version_line)" >&2
-    echo "This project requires Terraform >= 1.5.0 (v0.12 cannot parse check/precondition or provider source)." >&2
-    echo "Install Terraform 1.5+, put it first on PATH, or: export TG_TF_PATH=/path/to/terraform" >&2
-    exit 2
-  fi
+  export TG_TF_PATH="$_b"
+  echo "Using Terraform $(terraform_version_line) at $_b"
 }
 
 # New Terragrunt CLI (v0.88+): `run-all` is not a command. Use `run --all`.

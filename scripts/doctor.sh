@@ -35,14 +35,13 @@ else
   check 0 "terragrunt — required for plan/apply across accounts"
 fi
 
-if command -v "$(terraform_bin)" >/dev/null 2>&1; then
-  if terraform_is_15; then
-    check 1 "terraform $(terraform_version_line) ($(command -v "$(terraform_bin)")) — Terragrunt invokes this"
-  else
-    check 0 "terraform $(terraform_version_line) — need >= 1.5.0, not v0.12. Set TG_TF_PATH or fix PATH"
-  fi
+if _tf=$(discover_terraform_15); then
+  check 1 "terraform $("$_tf" version 2>/dev/null | head -n1) ($_tf) — Terragrunt uses scripts/terraform-shim"
 else
-  check 0 "terraform — Terragrunt requires Terraform >= 1.5.0 on PATH (or TG_TF_PATH)"
+  _def=$(command -v terraform 2>/dev/null || true)
+  _ver=""
+  [ -n "$_def" ] && _ver=$("$_def" version 2>/dev/null | head -n1)
+  check 0 "terraform >= 1.5.0 not found (PATH ${_def:-none} ${_ver} — iebcloud default is often v0.12.31). module load terraform/1.5 or export TG_TF_PATH=..."
 fi
 
 _cfg=$(aws_config_path)

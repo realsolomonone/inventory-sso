@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Terragrunt terraform_binary: execute Terraform >= 1.5 even when `terraform`
+# on PATH is v0.12 (iebcloud default). Override with TG_TF_PATH.
+
+set -euo pipefail
+. "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib.sh"
+
+if ! TF=$(discover_terraform_15); then
+  echo "inventory-sso: Terraform >= 1.5.0 not found." >&2
+  echo "PATH terraform is often v0.12.31 on iebcloud and cannot run this project." >&2
+  echo "  terraform version" >&2
+  echo "  module avail terraform && module load terraform/1.5" >&2
+  echo "  export TG_TF_PATH=/absolute/path/to/terraform" >&2
+  exit 127
+fi
+exec "$TF" "$@"

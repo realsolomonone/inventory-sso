@@ -132,3 +132,29 @@ test "$(stack_slug "profile name")" = "profile-name"
     assert "include.root.locals" not in text
     assert "111111111111" in text
     assert "{{profile}}" not in text
+
+
+def test_terraform_shim_is_executable():
+    shim = SCRIPTS / "terraform-shim"
+    assert shim.is_file()
+    assert os.access(shim, os.X_OK)
+    root = (ROOT / "infra" / "live" / "root.hcl").read_text(encoding="utf-8")
+    assert "scripts/terraform-shim" in root
+
+
+def test_discover_terraform_15_finds_local_binary():
+    helper = r"""
+set -euo pipefail
+. scripts/lib.sh
+_bin=$(discover_terraform_15)
+test -n "$_bin"
+test -x "$_bin"
+"""
+    completed = subprocess.run(
+        ["bash", "-c", helper],
+        cwd=str(ROOT),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr + completed.stdout

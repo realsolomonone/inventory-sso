@@ -5,11 +5,10 @@
 # Shared values are `inputs` (merged into children). Do not use include.expose —
 # newer Terragrunt cannot resolve exposed includes during `run --all`.
 #
-# Terraform 1.5+ is required (check/precondition, AWS provider 5.x). If `terraform
-# version` shows v0.12, point Terragrunt at a 1.5+ binary:
-#   export TG_TF_PATH=/path/to/terraform
+# Terraform 1.5+ is required. iebcloud often has v0.12.31 as `terraform` on PATH.
+# Terragrunt uses scripts/terraform-shim, which picks a 1.5+ binary (or TG_TF_PATH).
 
-terraform_binary             = get_env("TG_TF_PATH", "terraform")
+terraform_binary             = "${get_parent_terragrunt_dir()}/../../scripts/terraform-shim"
 terraform_version_constraint = ">= 1.5.0"
 
 locals {

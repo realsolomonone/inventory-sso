@@ -8,10 +8,13 @@ Terragrunt project that creates IAM role **r-edl-resource-inventory** in every I
 
 Current Terragrunt no longer has a `run-all` command. Use `terragrunt run --all …` (this is the CLI redesign). Do not run `terraform` against this repo.
 
-Run from this directory. AWS CLI v2, **Terragrunt**, and **Terraform 1.5+** are required. Terragrunt calls the `terraform` binary on PATH (`terraform version` must not be v0.12). If iebcloud still has 0.12 first on PATH:
+Run from this directory. AWS CLI v2, Terragrunt, and **Terraform 1.5+** are required. On iebcloud, `terraform` on PATH is often **v0.12.31** — this project cannot use 0.12. Terragrunt calls `scripts/terraform-shim`, which looks for a 1.5+ binary. If none is found:
 
 ```bash
-export TG_TF_PATH=/path/to/terraform-1.5   # or module load terraform/1.5
+terraform version
+module avail terraform
+module load terraform/1.5
+export TG_TF_PATH=$(command -v terraform)
 ./scripts/doctor.sh
 ```
 
@@ -231,7 +234,7 @@ source .venv/bin/activate && python -m pytest tests/ -q
 |---------|-----|
 | `unknown command: "run-all"` | Use `terragrunt run --all plan` (new CLI). Do not use `terragrunt run-all`. |
 | `retryable_errors` / `expose` parse errors | Pull latest `feature/inventory-sso-v1`, then **regenerate** stacks: `./scripts/stacks-generate.sh` |
-| `Provider source not supported in Terraform v0.12` / `check` / `precondition` | Terragrunt is using Terraform 0.12. Install **1.5+**, put it first on PATH, or `export TG_TF_PATH=/path/to/terraform`. Confirm with `./scripts/doctor.sh`. |
+| Terraform version check failed / `0.12.31` is not compatible with `>= 1.5.0` | PATH terraform is 0.12. Load 1.5+: `module avail terraform` then `module load terraform/1.5`, or `export TG_TF_PATH=/path/to/terraform`. Confirm with `./scripts/doctor.sh`. |
 | extra stacks found | Run from `infra/live/accounts`, not `infra/live` |
 | No profiles / INVALID | `./scripts/sso-login.sh --all` then `aws sso login --profile NAME` |
 | AccessDenied on apply | Deploying SSO role needs `iam:CreateRole` / `iam:PutRolePolicy` |

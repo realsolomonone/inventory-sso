@@ -208,6 +208,22 @@ source .venv/bin/activate
 python edl_resource_inventory.py scan
 ```
 
+## Verify creation (Python HTML report)
+
+After Terragrunt apply, confirm the role exists in every SSO account and open a ready HTML report:
+
+```bash
+source .venv/bin/activate
+python edl_resource_inventory.py verify --open
+```
+
+Opens `reports/role-verify.html`. Checks: role exists, SSO trust, ViewSpecificResourceGroup, Resource Groups ARN, TaggingReadOnly.
+
+```bash
+python edl_resource_inventory.py verify --profiles edl-uat
+python edl_resource_inventory.py verify --no-probe
+```
+
 ---
 
 ## Tests

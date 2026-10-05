@@ -1,3 +1,4 @@
+from src.models import AccountVerify, VerifyReport
 from src.policy import SCREENSHOT_EXAMPLE_ACCOUNT, VIEW_ACTIONS, inventory_policy
 from src.verifier import evaluate_role, parse_iam_document
 
@@ -47,3 +48,29 @@ def test_evaluate_role_fails_when_sid_missing():
     assert by_name["Trust allows IAM Identity Center"].passed is False
     assert by_name["Sid ViewSpecificResourceGroup"].passed is False
     assert by_name["Sid TaggingReadOnly"].passed is False
+
+
+def test_verify_report_overall_status():
+    def _row(profile: str, status: str) -> AccountVerify:
+        return AccountVerify(
+            profile=profile,
+            account_id="1",
+            account_name=profile,
+            partition="aws-us-gov",
+            role_name="r-edl-resource-inventory",
+            status=status,
+        )
+
+    empty = VerifyReport(generated_at="now", role_name="r", ticket="t", accounts=[])
+    assert empty.overall_status == "empty"
+    passed = VerifyReport(generated_at="now", role_name="r", ticket="t", accounts=[_row("a", "pass")])
+    assert passed.overall_status == "pass"
+    mixed = VerifyReport(
+        generated_at="now",
+        role_name="r",
+        ticket="t",
+        accounts=[_row("a", "pass"), _row("b", "missing")],
+    )
+    assert mixed.overall_status == "partial"
+    failed = VerifyReport(generated_at="now", role_name="r", ticket="t", accounts=[_row("a", "fail")])
+    assert failed.overall_status == "fail"

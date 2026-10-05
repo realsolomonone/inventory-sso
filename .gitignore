@@ -26,3 +26,4 @@ infra/live/**/verification.md
 crash.log
 *.tar
 !inventory-sso.tar
+!inventory-sso-verify-docs.tar

@@ -307,6 +307,120 @@ def cmd_scan(args: argparse.Namespace) -> ExitCode:
     return ExitCode.OK
 
 
+def _write_verify_reports(report, output_dir: Path) -> dict[str, str]:
+    from src.html_report import write_verify_html_reports
+    from src.reports import write_verify_reports
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    reports = write_verify_reports(report, output_dir)
+    report.reports = reports
+    reports = write_verify_html_reports(report, output_dir)
+    report.reports = reports
+    return reports
+
+
+def _print_verify_deliverables(report) -> None:
+    reports = report.reports or {}
+    html_path = reports.get("verify_html")
+    print("\n" + "=" * 62)
+    print(f"VERIFY {report.role_name}")
+    print("=" * 62)
+    print(f"  Overall:               {report.overall_status.upper()}")
+    print(f"  Pass / fail / missing: {report.passed_count} / {report.failed_count} / {report.missing_count}")
+    print(f"  Denied / error:        {report.blocked_count}")
+    if html_path:
+        print(f"\n  Open HTML report:      {html_path}\n")
+    for key, label in (
+        ("verify_accounts_csv", "Accounts CSV"),
+        ("verify_checks_csv", "Checks CSV"),
+        ("verify_json", "JSON"),
+    ):
+        if reports.get(key):
+            print(f"  {label:<24} {reports[key]}")
+    print("=" * 62)
+
+
+def cmd_verify(args: argparse.Namespace) -> ExitCode:
+    """Confirm r-edl-resource-inventory exists in each SSO account and write HTML."""
+    _ensure_src()
+    import webbrowser
+
+    from src.config_loader import load_config
+    from src.credentials import validate_profile
+    from src.reports import verify_to_dict
+    from src.verifier import run_verify
+
+    config = load_config(resolve_path(Path(args.config)), resolve_path(Path(args.accounts)))
+    if args.max_workers:
+        config.max_workers = args.max_workers
+    output_dir = resolve_path(Path(args.output_dir))
+    try:
+        selected = _selected_profiles(args, config)
+    except ValueError as exc:
+        print(f"Profile selection failed: {exc}")
+        return ExitCode.FAILED
+
+    print(f"\nVerify IAM role {config.role.name}")
+    print("=" * 40)
+    print(f"Profiles selected:  {len(selected)}")
+    print(f"Output directory:   {output_dir}")
+    if args.dry_run:
+        print("Mode:               DRY RUN\n")
+    if not selected:
+        print("\nNo profiles selected. Add SSO profiles to ~/.aws/config.")
+        return ExitCode.FAILED
+
+    valid: list[str] = []
+    print("\nCredential check:")
+    for index, profile in enumerate(selected, 1):
+        if args.dry_run:
+            valid.append(profile)
+            print(f"  [{index}/{len(selected)}] DRY  {profile}")
+            continue
+        ok, message = validate_profile(profile)
+        if ok:
+            valid.append(profile)
+            print(f"  [{index}/{len(selected)}] OK   {profile}")
+        else:
+            print(f"  [{index}/{len(selected)}] SKIP {profile}: {message}")
+    if not valid:
+        print("\nNo valid profiles. Run: ./scripts/sso-login.sh --all")
+        return ExitCode.FAILED
+
+    report = run_verify(
+        config,
+        valid,
+        probe=not args.no_probe,
+        dry_run=bool(args.dry_run),
+    )
+    if not args.dry_run:
+        report.reports = _write_verify_reports(report, output_dir)
+
+    if args.format == "json":
+        print(json.dumps(verify_to_dict(report), indent=2))
+    else:
+        for row in report.accounts:
+            print(
+                f"  [{row.status.upper():<7}] {row.profile} {row.account_id or '—'}"
+                f"{('  ' + row.role_arn) if row.role_arn else ''}"
+                f"{('  ' + row.message) if row.message else ''}"
+            )
+        if not args.dry_run:
+            _print_verify_deliverables(report)
+
+    html_path = (report.reports or {}).get("verify_html")
+    if args.open and html_path:
+        webbrowser.open(Path(html_path).resolve().as_uri())
+
+    if not report.accounts:
+        return ExitCode.FAILED
+    if report.overall_status == "pass":
+        return ExitCode.OK
+    if report.overall_status == "partial":
+        return ExitCode.PARTIAL
+    return ExitCode.FAILED
+
+
 def cmd_upload(args: argparse.Namespace) -> ExitCode:
     _ensure_src()
     from botocore.exceptions import BotoCoreError, ClientError
@@ -406,6 +520,19 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--dry-run", action="store_true")
     scan.add_argument("--format", choices=("text", "json"), default="text")
     scan.set_defaults(func=cmd_scan)
+
+    verify = sub.add_parser("verify", help="Verify IAM role creation in every SSO account and write an HTML report")
+    verify.add_argument("--config", default=str(DEFAULT_CONFIG))
+    verify.add_argument("--accounts", default=str(DEFAULT_ACCOUNTS))
+    verify.add_argument("--output-dir", default=str(DEFAULT_OUTPUT))
+    verify.add_argument("--profiles", nargs="*")
+    verify.add_argument("--include-static", action="store_true")
+    verify.add_argument("--max-workers", type=int, default=None)
+    verify.add_argument("--no-probe", action="store_true", help="Skip tag:GetTagKeys API probe")
+    verify.add_argument("--open", action="store_true", help="Open the HTML report in a browser")
+    verify.add_argument("--dry-run", action="store_true")
+    verify.add_argument("--format", choices=("text", "json"), default="text")
+    verify.set_defaults(func=cmd_verify)
 
     upload = sub.add_parser("upload", help="Sync reports/ to S3")
     upload.add_argument("directory")

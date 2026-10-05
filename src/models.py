@@ -221,3 +221,13 @@ class VerifyReport:
     @property
     def blocked_count(self) -> int:
         return sum(1 for row in self.accounts if row.status in {"denied", "error"})
+
+    @property
+    def overall_status(self) -> str:
+        if not self.accounts:
+            return "empty"
+        if self.failed_count == 0 and self.missing_count == 0 and self.blocked_count == 0:
+            return "pass"
+        if self.passed_count and (self.failed_count or self.missing_count or self.blocked_count):
+            return "partial"
+        return "fail"

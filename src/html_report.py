@@ -55,6 +55,13 @@ table.data th { background: #f8fafc; color: var(--muted); font-size: 0.72rem; te
 .footer { color: var(--muted); font-size: 0.82rem; }
 .checks { font-size: 0.82rem; color: var(--muted); margin: 0; padding-left: 18px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; word-break: break-all; }
+.banner { border-radius: 12px; padding: 18px 24px; margin-bottom: 20px; font-size: 1.35rem; font-weight: 800; letter-spacing: 0.02em; }
+.banner-pass { background: var(--green-bg); color: var(--green-text); }
+.banner-partial { background: var(--yellow-bg); color: var(--yellow-text); }
+.banner-fail, .banner-empty { background: var(--red-bg); color: var(--red-text); }
+.filter { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 0.95rem; margin: 0 0 12px; }
+details.acct { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 16px 12px; margin-bottom: 12px; }
+details.acct summary { cursor: pointer; font-weight: 700; padding: 12px 0; }
 
 """
 
@@ -100,7 +107,8 @@ def _nav(reports: dict[str, str]) -> str:
     return "".join(links)
 
 
-def _page(title: str, subtitle: str, reports: dict[str, str], body: str) -> str:
+def _page(title: str, subtitle: str, reports: dict[str, str], body: str, extra_script: str = "") -> str:
+    script = f"<script>{extra_script}</script>" if extra_script else ""
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>{_esc(title)}</title>
 <style>{SHARED_STYLES}</style></head>
@@ -109,7 +117,7 @@ def _page(title: str, subtitle: str, reports: dict[str, str], body: str) -> str:
   <div class="hero-nav">{_nav(reports)}</div></div>
   {body}
   <p class="footer">Role r-edl-resource-inventory · Resource Groups Tagging API · SSO profiles from ~/.aws/config</p>
-</div></body></html>
+</div>{script}</body></html>
 """
 
 
@@ -202,19 +210,20 @@ def write_verify_html_reports(report: VerifyReport, output_dir: Path) -> dict[st
         .strip("-")
     )
     reports = dict(report.reports)
-    index = output_dir / f"role-verify-index-{tag}.html"
-    detail = output_dir / f"role-verify-{tag}.html"
-    reports["verify_index_html"] = str(index)
-    reports["verify_html"] = str(detail)
+    latest = output_dir / "role-verify.html"
+    archive = output_dir / f"role-verify-{tag}.html"
+    reports["verify_html"] = str(latest)
+    reports["verify_html_archive"] = str(archive)
     subtitle = f"{report.ticket} · role {report.role_name} · {report.generated_at}"
-    index.write_text(
-        _page(f"Verify {report.role_name}", subtitle, reports, _verify_index_body(report, reports)),
-        encoding="utf-8",
+    page = _page(
+        f"Verify {report.role_name}",
+        subtitle,
+        reports,
+        _verify_report_body(report, reports),
+        extra_script=_VERIFY_FILTER_JS,
     )
-    detail.write_text(
-        _page(f"{report.role_name} check details", subtitle, reports, _verify_detail_body(report)),
-        encoding="utf-8",
-    )
+    latest.write_text(page, encoding="utf-8")
+    archive.write_text(page, encoding="utf-8")
     return reports
 
 
@@ -245,50 +254,85 @@ def _verify_account_rows(report: VerifyReport) -> str:
         )
     body = "".join(rows) or "<tr><td colspan='7'>No accounts verified.</td></tr>"
     return f"""
-    <div class="panel"><h2>Role creation by account</h2>
-    <div class="table-wrap"><table class="data">
+    <div class="table-wrap"><table class="data" id="acct-table">
       <thead><tr><th>Profile</th><th>Account</th><th>Overall</th><th>Role ARN</th><th>Checks</th><th>Created</th><th>Notes</th></tr></thead>
       <tbody>{body}</tbody>
-    </table></div></div>
+    </table></div>
     """
 
 
-def _verify_index_body(report: VerifyReport, reports: dict[str, str]) -> str:
+def _verify_banner(report: VerifyReport) -> str:
+    status = report.overall_status
+    labels = {
+        "pass": "ALL ACCOUNTS PASS — role created and policy matches",
+        "partial": "PARTIAL — some accounts passed; others failed or missing",
+        "fail": "FAIL — role not created or policy does not match",
+        "empty": "NO ACCOUNTS — login SSO profiles first",
+    }
+    return f'<div class="banner banner-{_esc(status)}">{_esc(labels.get(status, status.upper()))}</div>'
+
+
+def _verify_check_table(account) -> str:
+    checks = []
+    for item in account.checks:
+        result = "pass" if item.passed else "fail"
+        checks.append(
+            f"<tr class='row-{result}'>"
+            f"<td>{_esc(item.name)}</td>"
+            f"<td>{_badge(result)}</td>"
+            f"<td>{_esc(item.expected)}</td>"
+            f"<td class='mono'>{_esc(item.found)}</td>"
+            f"<td>{_esc(item.detail)}</td>"
+            "</tr>"
+        )
+    table = "".join(checks) or "<tr><td colspan='5'>No checks (dry-run or STS failure).</td></tr>"
+    return (
+        "<div class='table-wrap'><table class='data'>"
+        "<thead><tr><th>Check</th><th>Result</th><th>Expected</th><th>Found</th><th>Detail</th></tr></thead>"
+        f"<tbody>{table}</tbody></table></div>"
+    )
+
+
+def _verify_report_body(report: VerifyReport, reports: dict[str, str]) -> str:
     narrative = "".join(f"<li>{_esc(line)}</li>" for line in report.narrative)
     files = "".join(
         f"<tr><td>{_esc(key)}</td><td><a href='{_esc(Path(path).name)}'>{_esc(path)}</a></td></tr>"
         for key, path in sorted(reports.items())
         if path
     )
+    details = []
+    for account in report.accounts:
+        details.append(
+            f"<details class='acct' data-filter='{_esc(account.profile)} {_esc(account.account_id)} {_esc(account.status)}' open>"
+            f"<summary>{_esc(account.profile)} · {_esc(account.account_id or '—')} · {_badge(account.status)}</summary>"
+            f"<p class='mono'>{_esc(account.role_arn or account.message or '—')}</p>"
+            f"{_verify_check_table(account)}</details>"
+        )
     return (
+        f"{_verify_banner(report)}"
         f"{_verify_kpis(report)}"
-        f"<div class='panel'><h2>Documented results</h2><ol>{narrative}</ol></div>"
-        f"{_verify_account_rows(report)}"
-        f"<div class='panel'><h2>Deliverables</h2><div class='table-wrap'><table class='data'><tbody>{files}</tbody></table></div></div>"
+        f"<div class='panel'><h2>Summary</h2><ol>{narrative}</ol></div>"
+        f"<div class='panel'><h2>Role creation by account</h2>"
+        f"<input class='filter' id='acct-filter' type='search' placeholder='Filter profile or account…'>"
+        f"{_verify_account_rows(report)}</div>"
+        f"{''.join(details)}"
+        f"<div class='panel'><h2>Files</h2><div class='table-wrap'><table class='data'><tbody>{files}</tbody></table></div></div>"
     )
 
 
-def _verify_detail_body(report: VerifyReport) -> str:
-    blocks = [_verify_kpis(report), _verify_account_rows(report)]
-    for account in report.accounts:
-        checks = []
-        for item in account.checks:
-            result = "pass" if item.passed else "fail"
-            checks.append(
-                f"<tr class='row-{result}'>"
-                f"<td>{_esc(item.name)}</td>"
-                f"<td>{_badge(result)}</td>"
-                f"<td>{_esc(item.expected)}</td>"
-                f"<td class='mono'>{_esc(item.found)}</td>"
-                f"<td>{_esc(item.detail)}</td>"
-                "</tr>"
-            )
-        table = "".join(checks) or "<tr><td colspan='5'>No checks (dry-run or STS failure).</td></tr>"
-        blocks.append(
-            f"<div class='panel'><h2>{_esc(account.profile)} · {_esc(account.account_id or 'no account')} · {_esc(account.status)}</h2>"
-            f"<p class='mono'>{_esc(account.role_arn or account.message)}</p>"
-            f"<div class='table-wrap'><table class='data'>"
-            f"<thead><tr><th>Check</th><th>Result</th><th>Expected</th><th>Found</th><th>Detail</th></tr></thead>"
-            f"<tbody>{table}</tbody></table></div></div>"
-        )
-    return "".join(blocks)
+_VERIFY_FILTER_JS = """
+(function () {
+  var input = document.getElementById('acct-filter');
+  if (!input) return;
+  input.addEventListener('input', function () {
+    var q = (input.value || '').toLowerCase();
+    document.querySelectorAll('#acct-table tbody tr').forEach(function (row) {
+      row.style.display = !q || row.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+    document.querySelectorAll('details.acct').forEach(function (el) {
+      var hay = (el.getAttribute('data-filter') || '').toLowerCase();
+      el.style.display = !q || hay.indexOf(q) !== -1 ? '' : 'none';
+    });
+  });
+})();
+"""

@@ -2,9 +2,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.config_loader import load_config
-from src.html_report import write_html_reports
-from src.models import AccountResult, AccountStatus, Inventory, ResourceRecord, TagHealth
-from src.reports import write_data_reports
+from src.html_report import write_html_reports, write_verify_html_reports
+from src.models import AccountResult, AccountStatus, AccountVerify, CheckResult, Inventory, ResourceRecord, TagHealth, VerifyReport
+from src.reports import write_data_reports, write_verify_reports
 from src.scanner import build_narrative
 
 
@@ -59,3 +59,48 @@ def test_html_and_csv_include_role_name(tmp_path: Path):
     assert "r-edl-resource-inventory" in text
     assert "edl-uat" in Path(reports["accounts_csv"]).read_text(encoding="utf-8")
     assert "v-s3-edl-demo" in Path(reports["inventory_csv"]).read_text(encoding="utf-8")
+
+
+def test_verify_html_is_ready_to_open(tmp_path: Path):
+    report = VerifyReport(
+        generated_at="2026-10-05 20:00:00 UTC",
+        role_name="r-edl-resource-inventory",
+        ticket="EDL-RESOURCE-INVENTORY",
+        accounts=[
+            AccountVerify(
+                profile="edl-uat",
+                account_id="111111111111",
+                account_name="edl-uat",
+                partition="aws-us-gov",
+                role_name="r-edl-resource-inventory",
+                role_arn="arn:aws-us-gov:iam::111111111111:role/r-edl-resource-inventory",
+                created="2026-10-01 12:00:00 UTC",
+                status="pass",
+                checks=[CheckResult(name="Role exists", passed=True, expected="r-edl-resource-inventory", found="r-edl-resource-inventory")],
+            ),
+            AccountVerify(
+                profile="edl-dev",
+                account_id="222222222222",
+                account_name="edl-dev",
+                partition="aws-us-gov",
+                role_name="r-edl-resource-inventory",
+                status="missing",
+                message="Role does not exist",
+                checks=[CheckResult(name="Role exists", passed=False, expected="r-edl-resource-inventory", found="(missing)")],
+            ),
+        ],
+        narrative=["1 pass, 0 fail, 1 missing."],
+    )
+    paths = write_verify_reports(report, tmp_path)
+    report.reports = paths
+    html = write_verify_html_reports(report, tmp_path)
+    latest = Path(html["verify_html"])
+    assert latest.name == "role-verify.html"
+    text = latest.read_text(encoding="utf-8")
+    assert text.startswith("<!DOCTYPE html>")
+    assert "r-edl-resource-inventory" in text
+    assert "edl-uat" in text
+    assert "edl-dev" in text
+    assert "PARTIAL" in text
+    assert "Role exists" in text
+    assert Path(html["verify_html_archive"]).is_file()

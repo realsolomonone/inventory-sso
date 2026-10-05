@@ -225,6 +225,8 @@ source .venv/bin/activate && python -m pytest tests/ -q
 | Problem | Fix |
 |---------|-----|
 | `unknown command: "run-all"` | Use `terragrunt run --all plan` (new CLI). Do not use `terragrunt run-all`. |
+| `retryable_errors` / `expose` parse errors | Pull latest `feature/inventory-sso-v1`, then **regenerate** stacks: `./scripts/stacks-generate.sh` |
+| extra stacks found | Run from `infra/live/accounts`, not `infra/live` |
 | No profiles / INVALID | `./scripts/sso-login.sh --all` then `aws sso login --profile NAME` |
 | AccessDenied on apply | Deploying SSO role needs `iam:CreateRole` / `iam:PutRolePolicy` |
 | Verify overall `MISSING` | Run create apply first |

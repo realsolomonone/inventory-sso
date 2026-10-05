@@ -27,11 +27,12 @@ def test_generate_stacks_writes_terragrunt(tmp_path: Path, monkeypatch):
     paths = generate_stacks(["edl-uat"], cfg, accounts_dir=out, clean=True)
     assert len(paths) == 1
     text = paths[0].read_text(encoding="utf-8")
-    assert 'aws_profile                = "edl-uat"' in text
-    assert "include.root.locals.role_name" in text
+    assert 'aws_profile               = "edl-uat"' in text
     assert "111111111111" in text
     assert 'include "root"' in text
-    assert "verification_dir           = get_terragrunt_dir()" in text
+    assert "expose" not in text
+    assert "include.root.locals" not in text
+    assert "verification_dir          = get_terragrunt_dir()" in text
     assert "terragrunt run --all" in text
     assert "terragrunt apply" in text
 
@@ -42,5 +43,9 @@ def test_root_hcl_is_terragrunt_control_plane():
     assert 'generate "provider"' in text
     assert "terragrunt run --all" in text
     assert "extra_arguments" in text
-    assert "retryable_errors" in text
+    assert "retry_max_attempts" not in text
+    assert "retryable_errors =" not in text
+    assert "expose = true" not in text
     assert 'execute      = ["terraform"' not in text
+    assert "role_name" in text
+    assert "inputs = {" in text

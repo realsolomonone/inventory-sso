@@ -127,7 +127,8 @@ test "$(stack_slug "profile name")" = "profile-name"
         .replace("{{region}}", "us-gov-east-1")
         .replace("{{resource_group_account_id}}", "111111111111")
     )
-    assert 'aws_profile                = "edl-uat"' in text
-    assert "include.root.locals.role_name" in text
+    assert 'aws_profile               = "edl-uat"' in text
+    assert 'include "root"' in text
+    assert "include.root.locals" not in text
     assert "111111111111" in text
     assert "{{profile}}" not in text

@@ -200,29 +200,179 @@ Live units: `infra/live/accounts/<profile>/`
 
 ---
 
-## Optional inventory scan (Python)
+## Python environment + verify HTML report
+
+These steps confirm **r-edl-resource-inventory** was created in every SSO account and write `reports/role-verify.html`. Do them in order. Skip nothing.
+
+### What you need first
+
+| Need | Check |
+|------|--------|
+| This repo on disk | `inventory-sso` (not only the overlay tarball) |
+| Python 3.9+ | `python3 --version` |
+| `venv` module | ships with Python; on some Linux: `python3 -m venv --help` |
+| AWS CLI | `aws --version` |
+| SSO profiles | `~/.aws/config` has `[profile …]` with `sso_start_url` |
+| IAM role already applied | Terragrunt apply finished, or verify will report **missing** |
+
+On iebcloud, load a modern Python if `python3` is too old:
+
+```bash
+python3 --version
+module avail python
+module load python/3.11
+python3 --version
+```
+
+### 1. Go to the repo
+
+```bash
+cd ~/workspace/inventory-sso
+```
+
+Use your real path. Later commands must run from this directory.
+
+### 2. Overlay files (only if you unpacked `inventory-sso-verify-docs.tar`)
+
+If this checkout does not already have `python edl_resource_inventory.py verify --help`, copy from `python-verify/` onto the same paths:
+
+```bash
+cp python-verify/edl_resource_inventory.py ./edl_resource_inventory.py
+cp python-verify/src/html_report.py ./src/html_report.py
+cp python-verify/src/models.py ./src/models.py
+cp python-verify/tests/test_html_report.py ./tests/test_html_report.py
+cp python-verify/tests/test_verifier.py ./tests/test_verifier.py
+```
+
+Skip this step if you pulled `feature/inventory-sso-v1` and `verify --help` already works.
+
+### 3. Create the virtual environment
+
+**Option A (script):**
 
 ```bash
 python3 edl_resource_inventory.py setup --install
-source .venv/bin/activate
-python edl_resource_inventory.py scan
 ```
 
-## Verify creation (Python HTML report)
+**Option B (manual):**
 
-After Terragrunt apply, confirm the role exists in every SSO account and open a ready HTML report:
+```bash
+python3 -m venv .venv
+```
+
+Windows: `py -3 -m venv .venv`
+
+### 4. Activate it (every new terminal)
+
+macOS / Linux / iebcloud:
 
 ```bash
 source .venv/bin/activate
+```
+
+Windows (cmd): `.venv\Scripts\activate.bat`  
+Windows (PowerShell): `.venv\Scripts\Activate.ps1`
+
+You should see `(.venv)` in the prompt. Confirm:
+
+```bash
+which python
+python --version
+```
+
+`which python` must point at `…/inventory-sso/.venv/bin/python`.
+
+### 5. Install Python packages
+
+If you used `setup --install`, packages are already installed. Otherwise:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+That installs `boto3`, `PyYAML`, and `pytest`. Confirm:
+
+```bash
+python -c "import boto3, yaml, pytest; print('python env ok')"
+python edl_resource_inventory.py verify --help
+```
+
+You must see the `verify` subcommand. If `ModuleNotFoundError: boto3`, the venv is not active or step 5 was skipped.
+
+### 6. Sign in to every SSO account
+
+```bash
+chmod +x scripts/*.sh
+./scripts/sso-login.sh --all
+./scripts/sso-profiles.sh --check
+```
+
+Every profile you care about must be **VALID**. If one is **INVALID**:
+
+```bash
+aws sso login --profile PROFILE-NAME
+./scripts/sso-profiles.sh --check
+```
+
+### 7. Run verify
+
+Still in the repo, venv still active:
+
+```bash
 python edl_resource_inventory.py verify --open
 ```
 
-Opens `reports/role-verify.html`. Checks: role exists, SSO trust, ViewSpecificResourceGroup, Resource Groups ARN, TaggingReadOnly.
+That command:
+
+1. Reads SSO profiles from `~/.aws/config`
+2. Checks STS credentials
+3. Calls IAM `GetRole` / `GetRolePolicy` in each account
+4. Checks: role exists, SSO trust, `ViewSpecificResourceGroup`, Resource Groups ARN, `TaggingReadOnly`
+5. Writes `reports/role-verify.html` (also JSON/CSV next to it)
+6. `--open` launches the HTML in your default browser
+
+If the browser does not open:
 
 ```bash
-python edl_resource_inventory.py verify --profiles edl-uat
-python edl_resource_inventory.py verify --no-probe
+ls -l reports/role-verify.html
+open reports/role-verify.html
 ```
+
+iebcloud / Linux:
+
+```bash
+firefox reports/role-verify.html
+# or copy the file to your laptop and open it locally
+```
+
+Read the banner: **ALL ACCOUNTS PASS**, **PARTIAL**, or **FAIL**. Expand each account for per-check results.
+
+### 8. Useful verify options
+
+```bash
+# One profile only
+python edl_resource_inventory.py verify --profiles YOUR_PROFILE --open
+
+# Faster (IAM only, skip tag:GetTagKeys probe)
+python edl_resource_inventory.py verify --no-probe --open
+
+# Write files without opening a browser
+python edl_resource_inventory.py verify
+
+# Machine-readable
+python edl_resource_inventory.py verify --format json
+```
+
+Exit codes: `0` all pass, `1` partial, `2` fail / no valid profiles.
+
+### 9. Optional tagged-resource scan (not the same as verify)
+
+```bash
+python edl_resource_inventory.py scan
+```
+
+---
 
 ---
 
@@ -258,3 +408,9 @@ source .venv/bin/activate && python -m pytest tests/ -q
 | No stacks generated | Add SSO profiles to `~/.aws/config`, then `./scripts/stacks-generate.sh` |
 | Wrong accounts selected | Set `PROFILE_PREFIX`, `SSO_START_URL`, or `EXCLUDE_PROFILES` |
 | terragrunt not on PATH | Install Terragrunt; `./scripts/doctor.sh` will FAIL until it is |
+| `python3: command not found` | Install Python 3.9+ or `module load python/3.11` |
+| `ensurepip` / `venv` missing | `python3 -m venv .venv` failed; install `python3-venv` (Linux) or another Python |
+| `ModuleNotFoundError: boto3` | `source .venv/bin/activate` then `python -m pip install -r requirements.txt` |
+| `verify` is not a known command | Overlay/pull latest `feature/inventory-sso-v1`; run `python edl_resource_inventory.py verify --help` |
+| No valid profiles / all SKIP | `./scripts/sso-login.sh --all` then `./scripts/sso-profiles.sh --check` |
+| HTML not found | Run verify from the repo root with venv on; file is `reports/role-verify.html` |

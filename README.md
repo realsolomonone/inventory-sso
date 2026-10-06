@@ -59,11 +59,10 @@ python edl_resource_inventory.py verify --open
 
 ---
 
-## Architecture demo (executive / junior admin / SME)
+## Architecture
 
-Open **[docs/architecture/index.html](docs/architecture/index.html)** in a browser.
+Open **[docs/architecture/index.html](docs/architecture/index.html)** — one walkthrough (junior, engineer, executive).
 
-`docs/architecture/` — diagrams, briefs, and the live demo tabs.  
 PowerPoint: `docs/EDL-Resource-Inventory-Terragrunt-Workflow.pptx`
 
 ---

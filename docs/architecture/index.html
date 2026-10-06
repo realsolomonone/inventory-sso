@@ -2,28 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>inventory-sso architecture demo</title>
+  <title>inventory-sso architecture</title>
   <style>
     :root { --navy:#232F3E; --orange:#FF9900; --bg:#f4f7f9; --text:#1f2937; --muted:#6b7280; --line:#e5e7eb; --card:#fff; --green:#166534; --greenbg:#dcfce7; --red:#991b1b; --redbg:#fee2e2; }
     * { box-sizing: border-box; }
     body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
-    header { background:var(--navy); color:#fff; padding:28px 32px 20px; }
+    header { background:var(--navy); color:#fff; padding:28px 32px; }
     header h1 { margin:0 0 6px; font-size:1.6rem; }
     header p { margin:0; color:#c5d4de; }
-    nav { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
-    nav a { color:#fff; text-decoration:none; padding:8px 14px; border:1px solid rgba(255,255,255,.35); border-radius:8px; font-weight:600; font-size:.9rem; }
-    nav a:hover, nav a.on { background:var(--orange); border-color:var(--orange); color:var(--navy); }
     .wrap { max-width:1100px; margin:0 auto; padding:24px 20px 64px; }
-    .panel { display:none; }
-    .panel.on { display:block; }
     .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin:0 0 16px; }
     h2 { margin:0 0 10px; font-size:1.25rem; }
-    h3 { margin:18px 0 8px; font-size:1rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
     img.dia { width:100%; height:auto; background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px; }
     table { width:100%; border-collapse:collapse; font-size:.92rem; }
     th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
     th { color:var(--muted); font-size:.75rem; text-transform:uppercase; }
-    code, .mono { font-family:ui-monospace,Menlo,monospace; font-size:.85rem; background:#f3f4f6; padding:1px 5px; border-radius:4px; }
+    code { font-family:ui-monospace,Menlo,monospace; font-size:.85rem; background:#f3f4f6; padding:1px 5px; border-radius:4px; }
     pre { background:#111827; color:#e5e7eb; padding:14px 16px; border-radius:10px; overflow-x:auto; font-size:.82rem; }
     .kpi { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin:0 0 16px; }
     .kpi div { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
@@ -31,71 +25,50 @@
     .kpi .v { font-size:1.15rem; font-weight:800; margin-top:4px; }
     .ok { background:var(--greenbg); color:var(--green); padding:2px 8px; border-radius:999px; font-size:.75rem; font-weight:700; }
     .bad { background:var(--redbg); color:var(--red); padding:2px 8px; border-radius:999px; font-size:.75rem; font-weight:700; }
-    ul { margin:8px 0 0 18px; padding:0; }
+    ul, ol { margin:8px 0 0 18px; padding:0; }
     li { margin:4px 0; }
+    caption { caption-side:top; text-align:left; font-weight:700; padding:0 0 8px; }
   </style>
 </head>
 <body>
 <header>
-  <h1>EDL resource inventory — architecture demo</h1>
-  <p>Same Terragrunt project. Three audiences. Branch <span style="color:#FF9900">feature/inventory-sso-v3</span></p>
-  <nav>
-    <a href="#exec" class="on">Executive</a>
-    <a href="#admin">Junior admin</a>
-    <a href="#sme">Senior engineer</a>
-  </nav>
+  <h1>EDL resource inventory — architecture</h1>
+  <p>One walkthrough for junior admins, engineers, and executives. Branch feature/inventory-sso-v3</p>
 </header>
 <div class="wrap">
 
-<section id="exec" class="panel on">
   <div class="kpi">
     <div><div class="l">Outcome</div><div class="v">One IAM role in every account</div></div>
     <div><div class="l">Role</div><div class="v">r-edl-resource-inventory</div></div>
     <div><div class="l">Access</div><div class="v">Read-only inventory</div></div>
-    <div><div class="l">Proof</div><div class="v">executive.html</div></div>
+    <div><div class="l">Proof</div><div class="v">reports/executive.html</div></div>
   </div>
+
   <div class="card">
-    <h2>What we built</h2>
-    <p>Terragrunt deploys the same read-only IAM role across every IAM Identity Center account. Python then proves the role exists and matches policy. Leadership opens one HTML file.</p>
-    <img class="dia" src="deploy-architecture.png" alt="Deploy: SSO login, Terragrunt apply, IAM role, Resource Groups read-only">
+    <h2>1. What this is</h2>
+    <p>Terragrunt creates the same read-only IAM role in every IAM Identity Center account. Python then proves the role exists and matches policy. Operators never run <code>terraform</code> against this repo. Leadership opens one HTML file.</p>
+    <img class="dia" src="deploy-architecture.png" alt="SSO login, Terragrunt apply, IAM role, Resource Groups read-only">
   </div>
+
   <div class="card">
-    <h2>What the role can and cannot do</h2>
+    <h2>2. What the role can and cannot do</h2>
     <table>
       <tr><th>Allowed</th><th>Not allowed</th></tr>
       <tr><td>Read Resource Groups</td><td>Create, change, or delete resources</td></tr>
       <tr><td>Read tags (<code>tag:Get*</code>)</td><td>Write tags or IAM</td></tr>
       <tr><td>Assume only from Identity Center roles</td><td>Long-lived access keys on the role</td></tr>
     </table>
+    <p>Trust: <code>sts:AssumeRole</code> + <code>TagSession</code>, condition <code>ArnLike</code> <code>aws-reserved/sso.amazonaws.com/*</code>.</p>
+    <table>
+      <tr><th>Sid</th><th>Actions</th><th>Resource</th></tr>
+      <tr><td>ViewSpecificResourceGroup</td><td>resource-groups Get/List/Search</td><td><code>arn:PARTITION:resource-groups:*:ACCOUNT:*/*</code></td></tr>
+      <tr><td>TaggingReadOnly</td><td>tag:GetResources, GetTagKeys, GetTagValues</td><td><code>*</code></td></tr>
+    </table>
   </div>
-  <div class="card">
-    <h2>How you know it worked</h2>
-    <img class="dia" src="verify-architecture.png" alt="Verify: verify.sh, SSO, GetRole, executive.html">
-    <p>Ask operations for <code>reports/executive.html</code>.</p>
-    <ul>
-      <li><span class="ok">PASS</span> role present and policy matches in that account</li>
-      <li><span class="bad">MISSING</span> deploy has not been applied there</li>
-      <li><span class="bad">DENIED</span> SSO session expired — login, don’t redeploy</li>
-    </ul>
-  </div>
-  <div class="card">
-    <h2>Ask in the room</h2>
-    <ul>
-      <li>How many accounts passed vs need attention?</li>
-      <li>Is trust limited to Identity Center?</li>
-      <li>Where is the signed report? <code>reports/executive.html</code></li>
-    </ul>
-  </div>
-</section>
 
-<section id="admin" class="panel">
   <div class="card">
-    <h2>Your job</h2>
-    <p>Authenticate, generate stacks, apply with Terragrunt, then verify. Never run <code>terraform</code> in this repo. Never run <code>terragrunt run-all</code> (old command).</p>
-    <img class="dia" src="deploy-architecture.png" alt="Operator deploy workflow">
-  </div>
-  <div class="card">
-    <h2>Deploy — say these commands out loud</h2>
+    <h2>3. Deploy (run these)</h2>
+    <p>Always <code>terragrunt run --all</code> from <code>infra/live/accounts</code>. Do not use <code>run-all</code>. Do not run from <code>infra/live</code>.</p>
 <pre>cd ~/workspace/inventory-sso
 ./scripts/doctor.sh
 ./scripts/sso-login.sh --all
@@ -104,110 +77,53 @@
 cd infra/live/accounts
 terragrunt run --all plan
 terragrunt run --all apply</pre>
-    <p>Always run <code>--all</code> from <code>infra/live/accounts</code>, not from <code>infra/live</code>.</p>
+    <p>One account: <code>cd infra/live/accounts/PROFILE && terragrunt apply</code><br>
+    Destroy: <code>cd infra/live/accounts && terragrunt run --all destroy</code> — never from <code>verify-accounts</code>.</p>
   </div>
-  <div class="card">
-    <h2>Verify — one command</h2>
-<pre>./scripts/verify.sh</pre>
-    <img class="dia" src="verify-architecture.png" alt="Verify workflow">
-    <table>
-      <tr><th>Open</th><th>Who</th></tr>
-      <tr><td><code>reports/executive.html</code></td><td>Show the boss</td></tr>
-      <tr><td><code>reports/role-verify.html</code></td><td>If a row failed</td></tr>
-    </table>
-  </div>
-  <div class="card">
-    <h2>If something breaks</h2>
-    <table>
-      <tr><th>You see</th><th>You do</th></tr>
-      <tr><td><code>unknown command: run-all</code></td><td>Use <code>terragrunt run --all</code></td></tr>
-      <tr><td>Terraform 0.12.31</td><td><code>module load terraform/1.5</code> then <code>export TG_TF_PATH=$(command -v terraform)</code></td></tr>
-      <tr><td>Profile INVALID / DENIED</td><td><code>aws sso login --profile NAME</code></td></tr>
-      <tr><td>Role MISSING</td><td>Apply first, then verify again</td></tr>
-      <tr><td>One account only</td><td><code>cd infra/live/accounts/PROFILE && terragrunt apply</code></td></tr>
-    </table>
-  </div>
-  <div class="card">
-    <h2>Destroy (rare)</h2>
-<pre>cd infra/live/accounts
-terragrunt run --all destroy</pre>
-    <p>Never destroy from <code>verify-accounts</code>.</p>
-  </div>
-</section>
 
-<section id="sme" class="panel">
   <div class="card">
-    <h2>Control plane vs module</h2>
-    <p>Terragrunt is the operator path. Terraform exists only in <code>infra/modules/</code>. <code>root.hcl</code> generates the AWS provider, merges inputs, pins Terraform ≥ 1.5, and points <code>terraform_binary</code> at <code>scripts/terraform-shim</code> so iebcloud’s default 0.12.31 is never used.</p>
-    <img class="dia" src="control-plane.png" alt="SSO config to stacks-generate to root.hcl to terraform-shim to IAM module">
+    <h2>4. Verify (one command)</h2>
+    <img class="dia" src="verify-architecture.png" alt="verify.sh, SSO, GetRole, executive.html">
+<pre>./scripts/verify.sh</pre>
+    <table>
+      <tr><th>File</th><th>Use</th></tr>
+      <tr><td><code>reports/executive.html</code></td><td>Pass / fail / missing by account</td></tr>
+      <tr><td><code>reports/role-verify.html</code></td><td>Per-check detail if a row failed</td></tr>
+    </table>
+    <ul>
+      <li><span class="ok">PASS</span> role present and policy matches</li>
+      <li><span class="bad">MISSING</span> apply has not run in that account</li>
+      <li><span class="bad">DENIED</span> SSO expired — login, don’t redeploy</li>
+    </ul>
   </div>
+
   <div class="card">
-    <h2>Key logic</h2>
+    <h2>5. How the code is wired</h2>
+    <img class="dia" src="control-plane.png" alt="aws config to stacks-generate to root.hcl to terraform-shim to IAM module">
     <table>
       <tr><th>Layer</th><th>Path</th><th>Does</th></tr>
       <tr><td>SSO</td><td><code>scripts/sso-login.sh</code></td><td>AWS CLI login per Identity Center start URL</td></tr>
       <tr><td>Units</td><td><code>scripts/stacks-generate.sh</code></td><td>One <code>terragrunt.hcl</code> per SSO profile (gitignored)</td></tr>
-      <tr><td>Control</td><td><code>infra/live/root.hcl</code></td><td>include target, provider generate, tags, after_hooks</td></tr>
-      <tr><td>IAM</td><td><code>infra/modules/r-edl-resource-inventory</code></td><td>Role + inline policy + create-time checks</td></tr>
-      <tr><td>Read-only TG</td><td><code>infra/modules/verify-role</code></td><td>Data-only Terragrunt verify (no IAM writes)</td></tr>
-      <tr><td>Python</td><td><code>src/verifier.py</code></td><td><code>GetRole</code> / <code>GetRolePolicy</code> across profiles</td></tr>
+      <tr><td>Control</td><td><code>infra/live/root.hcl</code></td><td>Provider generate, tags, Terraform ≥ 1.5 shim</td></tr>
+      <tr><td>IAM</td><td><code>infra/modules/r-edl-resource-inventory</code></td><td>Role + inline policy</td></tr>
+      <tr><td>Python</td><td><code>src/verifier.py</code></td><td><code>GetRole</code> / <code>GetRolePolicy</code></td></tr>
       <tr><td>HTML</td><td><code>src/html_report.py</code></td><td><code>executive.html</code> + <code>role-verify.html</code></td></tr>
     </table>
+    <p>Python checks: role exists; SSO trust; ViewSpecificResourceGroup; Resource Groups ARN; TaggingReadOnly; optional <code>tag:GetTagKeys</code>.</p>
   </div>
+
   <div class="card">
-    <h2>IAM contract (must match screenshot SIDs)</h2>
+    <h2>6. If something breaks</h2>
     <table>
-      <tr><th>Sid</th><th>Actions</th><th>Resource</th></tr>
-      <tr><td>ViewSpecificResourceGroup</td><td>resource-groups Get/List/Search</td><td><code>arn:PARTITION:resource-groups:*:ACCOUNT:*/*</code></td></tr>
-      <tr><td>TaggingReadOnly</td><td>tag:GetResources, GetTagKeys, GetTagValues</td><td><code>*</code></td></tr>
+      <tr><th>You see</th><th>You do</th></tr>
+      <tr><td><code>unknown command: run-all</code></td><td><code>terragrunt run --all</code></td></tr>
+      <tr><td>Terraform 0.12.31</td><td><code>module load terraform/1.5</code> then <code>export TG_TF_PATH=$(command -v terraform)</code></td></tr>
+      <tr><td>INVALID / DENIED</td><td><code>aws sso login --profile NAME</code></td></tr>
+      <tr><td>Role MISSING</td><td>Apply first, then <code>./scripts/verify.sh</code></td></tr>
+      <tr><td><code>ModuleNotFoundError</code></td><td>Use <code>./scripts/verify.sh</code> (it builds <code>.venv</code>)</td></tr>
     </table>
-    <p>Trust: <code>sts:AssumeRole</code> + <code>TagSession</code>, principal account root, condition <code>ArnLike</code> <code>aws-reserved/sso.amazonaws.com/*</code>.</p>
   </div>
-  <div class="card">
-    <h2>Python verify checks</h2>
-    <ol>
-      <li>Role exists (<code>iam:GetRole</code>) — else status <code>missing</code></li>
-      <li>Trust JSON contains <code>sso.amazonaws.com</code> and <code>sts:AssumeRole</code></li>
-      <li>Sid <code>ViewSpecificResourceGroup</code> covers required Get/List actions</li>
-      <li>Resource Groups ARN uses this account (or <code>RESOURCE_GROUP_ACCOUNT_ID</code>)</li>
-      <li>Sid <code>TaggingReadOnly</code> on <code>*</code></li>
-      <li>Optional probe: <code>tag:GetTagKeys</code></li>
-    </ol>
-    <p>SSO failures are <code>denied</code> rows in HTML — the run still writes the report. Overall: pass / partial / fail.</p>
-<pre>./scripts/verify.sh
-# src/verifier.py evaluate_role()
-# src/html_report.py write_verify_html_reports()</pre>
-  </div>
-  <div class="card">
-    <h2>Hard rules</h2>
-    <ul>
-      <li>No <code>include.expose</code> — new Terragrunt cannot resolve it on <code>run --all</code></li>
-      <li>No <code>retryable_errors</code> block on this CLI</li>
-      <li><code>run --all</code> only from <code>infra/live/accounts</code> (or <code>verify-accounts</code>)</li>
-      <li>Do not rewrite the IAM module for Terraform 0.12 (AWS provider 5 + check blocks)</li>
-    </ul>
-  </div>
-</section>
+
 </div>
-<script>
-(function () {
-  var links = document.querySelectorAll("nav a");
-  var panels = document.querySelectorAll(".panel");
-  function show(id) {
-    panels.forEach(function (p) { p.classList.toggle("on", p.id === id); });
-    links.forEach(function (a) { a.classList.toggle("on", a.getAttribute("href") === "#" + id); });
-  }
-  links.forEach(function (a) {
-    a.addEventListener("click", function (e) {
-      e.preventDefault();
-      show(a.getAttribute("href").slice(1));
-      history.replaceState(null, "", a.getAttribute("href"));
-    });
-  });
-  var initial = (location.hash || "#exec").slice(1);
-  if (!document.getElementById(initial)) initial = "exec";
-  show(initial);
-})();
-</script>
 </body>
 </html>

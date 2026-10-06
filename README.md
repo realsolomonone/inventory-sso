@@ -59,10 +59,12 @@ python edl_resource_inventory.py verify --open
 
 ---
 
-## Docs
+## Architecture demo (executive / junior admin / SME)
 
-`docs/EDL-Resource-Inventory-Terragrunt-Workflow.pptx`  
-`docs/edl-inventory-architecture.png` · `docs/edl-inventory-workflow.png`
+Open **[docs/architecture/index.html](docs/architecture/index.html)** in a browser.
+
+`docs/architecture/` — diagrams, briefs, and the live demo tabs.  
+PowerPoint: `docs/EDL-Resource-Inventory-Terragrunt-Workflow.pptx`
 
 ---
 

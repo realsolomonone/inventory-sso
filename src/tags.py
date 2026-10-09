@@ -9,6 +9,19 @@ import re
 
 from .models import TagHealth, TagIssue, TagSpec
 
+# Same required keys as s3-taggings (config/s3-tag-inventory.yaml).
+REQUIRED_EDL_TAG_KEYS = (
+    "Project Name",
+    "ProjectNumber",
+    "Organization",
+    "CostAllocation",
+    "Environment",
+    "Project Role",
+    "edl:project_id",
+    "Title Data",
+    "boc:created_by",
+)
+
 
 def _norm(value: object) -> str:
     return "" if value is None else str(value).strip()
@@ -95,3 +108,7 @@ def score_tags(
     if found and all(item.kind == "invalid" for item in found):
         return TagHealth.INVALID, pct
     return TagHealth.PARTIAL, pct
+
+
+def example_tags(specs: list[TagSpec]) -> dict[str, str]:
+    return {spec.key: spec.example for spec in specs}

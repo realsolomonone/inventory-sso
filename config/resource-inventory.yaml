@@ -35,6 +35,7 @@ scan:
   regions: []
 
 tags:
+  # Same required set as s3-taggings/config/s3-tag-inventory.yaml (audit/compliance).
   required:
     - key: Project Name
       aliases: [ProjectName, project_name]

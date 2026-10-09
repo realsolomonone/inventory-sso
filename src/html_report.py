@@ -295,7 +295,7 @@ def _verify_executive_body(report: VerifyReport) -> str:
         "<div class='panel'><h2>Scope</h2>"
         f"<p>IAM role <span class='mono'>{_esc(report.role_name)}</span> across "
         f"{len(report.accounts)} Identity Center account(s). "
-        "Checks: exists, SSO trust, Resource Groups read, tagging read-only.</p></div>"
+        "Checks: exists, SSO trust, Resource Groups read, tagging read-only, EDL compliance tags (s3-taggings).</p></div>"
         f"{exceptions}"
         "<div class='panel'><h2>All accounts</h2>"
         f"{_verify_account_rows(report)}</div>"

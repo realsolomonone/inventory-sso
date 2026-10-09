@@ -1,6 +1,8 @@
+from src.config_loader import load_config
 from src.models import AccountVerify, VerifyReport
 from src.policy import SCREENSHOT_EXAMPLE_ACCOUNT, VIEW_ACTIONS, inventory_policy
-from src.verifier import evaluate_role, parse_iam_document
+from src.tags import example_tags
+from src.verifier import evaluate_edl_tags, evaluate_role, parse_iam_document
 
 
 def test_parse_iam_document_url_encoded():
@@ -74,3 +76,61 @@ def test_verify_report_overall_status():
     assert mixed.overall_status == "partial"
     failed = VerifyReport(generated_at="now", role_name="r", ticket="t", accounts=[_row("a", "fail")])
     assert failed.overall_status == "fail"
+
+
+def _screenshot_trust():
+    return {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "AllowSSOAssume",
+                "Effect": "Allow",
+                "Action": ["sts:AssumeRole", "sts:TagSession"],
+                "Condition": {"ArnLike": {"aws:PrincipalArn": ["arn:aws-us-gov:iam::053381801543:role/aws-reserved/sso.amazonaws.com/*"]}},
+            }
+        ],
+    }
+
+
+def test_evaluate_role_edl_tags_pass():
+    cfg = load_config()
+    policy = inventory_policy(partition="aws-us-gov", account_id=SCREENSHOT_EXAMPLE_ACCOUNT)
+    checks = evaluate_role(
+        {"RoleName": "r-edl-resource-inventory", "Arn": "arn:aws-us-gov:iam::053381801543:role/r-edl-resource-inventory"},
+        _screenshot_trust(),
+        policy,
+        role_name="r-edl-resource-inventory",
+        account_id=SCREENSHOT_EXAMPLE_ACCOUNT,
+        partition="aws-us-gov",
+        resource_group_account_id=SCREENSHOT_EXAMPLE_ACCOUNT,
+        role_tags=example_tags(cfg.required_tags),
+        tag_specs=cfg.required_tags,
+    )
+    assert all(item.passed for item in checks)
+
+
+def test_evaluate_role_edl_tags_fail_gov_east_and_missing():
+    cfg = load_config()
+    policy = inventory_policy(partition="aws-us-gov", account_id=SCREENSHOT_EXAMPLE_ACCOUNT)
+    checks = evaluate_role(
+        {"RoleName": "r-edl-resource-inventory", "Arn": "arn:aws-us-gov:iam::053381801543:role/r-edl-resource-inventory"},
+        _screenshot_trust(),
+        policy,
+        role_name="r-edl-resource-inventory",
+        account_id=SCREENSHOT_EXAMPLE_ACCOUNT,
+        partition="aws-us-gov",
+        resource_group_account_id=SCREENSHOT_EXAMPLE_ACCOUNT,
+        role_tags={"Environment": "gov-east", "Project Name": "edl_resource_inventory"},
+        tag_specs=cfg.required_tags,
+    )
+    by_name = {item.name: item for item in checks}
+    assert by_name["EDL compliance tags"].passed is False
+    assert by_name["Tag Environment"].passed is False
+    assert by_name["Tag ProjectNumber"].passed is False
+
+
+def test_evaluate_edl_tags_list_error():
+    cfg = load_config()
+    checks = evaluate_edl_tags({}, cfg.required_tags, tag_error="AccessDenied listing role tags")
+    assert len(checks) == 1
+    assert checks[0].passed is False

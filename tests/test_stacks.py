@@ -51,3 +51,36 @@ def test_root_hcl_is_terragrunt_control_plane():
     assert "terraform-shim" in text
     assert "terraform_version_constraint" in text
     assert ">= 1.5.0" in text
+    for key in (
+        "Project Name",
+        "ProjectNumber",
+        "Organization",
+        "CostAllocation",
+        "Project Role",
+        "edl:project_id",
+        "Title Data",
+        "boc:created_by",
+        "TAG_ENVIRONMENT",
+    ):
+        assert key in text
+    assert "Environment    = local.environment" not in text
+
+
+def test_iam_module_stamps_edl_compliance_tags():
+    root = Path(__file__).resolve().parents[1]
+    main = (root / "infra" / "modules" / "r-edl-resource-inventory" / "main.tf").read_text(encoding="utf-8")
+    verify = (root / "infra" / "modules" / "r-edl-resource-inventory" / "verify.tf").read_text(encoding="utf-8")
+    for key in (
+        "Project Name",
+        "ProjectNumber",
+        "Organization",
+        "CostAllocation",
+        "Project Role",
+        "edl:project_id",
+        "Title Data",
+        "boc:created_by",
+    ):
+        assert key in main
+        assert key in verify
+    assert "edl_tags_ok" in verify
+    assert "s3-taggings" in verify

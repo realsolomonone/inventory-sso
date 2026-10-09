@@ -19,6 +19,25 @@ locals {
     "tag:GetTagValues",
   ])
 
+  # Same EDL required keys/patterns as s3-taggings config/s3-tag-inventory.yaml.
+  edl_tag_rules = {
+    "Project Name"   = "^edl_[a-z0-9_]+$"
+    ProjectNumber    = "^fs[0-9]{10}$"
+    Organization     = "^[a-z0-9]+(:[a-z0-9]+)+$"
+    CostAllocation   = "^[a-z0-9]+:[a-z0-9]+$"
+    Environment      = "^(dev|qa|uat|staging|prod|test|sandbox|common)$"
+    "Project Role"   = "^edl_[a-z0-9_]+$"
+    "edl:project_id" = "^[0-9]+$"
+    "Title Data"     = "^[a-z0-9_]+(/[a-z0-9_]+)*$"
+    "boc:created_by" = "^[a-z0-9]+$"
+  }
+  live_tags = aws_iam_role.inventory.tags
+  edl_tag_failures = [
+    for key, pattern in local.edl_tag_rules : key
+    if !can(regex(pattern, lookup(local.live_tags, key, "")))
+  ]
+  edl_tags_ok = length(local.edl_tag_failures) == 0
+
   live_policy       = jsondecode(aws_iam_role_policy.inventory.policy)
   live_statements   = try(local.live_policy.Statement, [])
   view_list         = [for s in local.live_statements : s if try(s.Sid, "") == "ViewSpecificResourceGroup"]
@@ -33,7 +52,7 @@ locals {
   tagging_ok        = local.has_tagging && setintersection(local.tagging_required, local.tagging_actions) == local.tagging_required && contains(local.tagging_resources, "*")
   arn_ok            = contains(local.view_resources, local.resource_groups_arn)
   sso_trust_ok      = strcontains(data.aws_iam_role.verify.assume_role_policy, "sso.amazonaws.com") && strcontains(data.aws_iam_role.verify.assume_role_policy, "sts:AssumeRole")
-  overall_pass      = local.view_ok && local.tagging_ok && local.arn_ok && local.sso_trust_ok
+  overall_pass      = local.view_ok && local.tagging_ok && local.arn_ok && local.sso_trust_ok && local.edl_tags_ok
 
   verification_checks = [
     {
@@ -65,6 +84,12 @@ locals {
       result   = local.tagging_ok ? "PASS" : "FAIL"
       expected = join(", ", sort(tolist(local.tagging_required)))
       found    = local.has_tagging ? join(", ", sort(tolist(local.tagging_actions))) : "(missing Sid)"
+    },
+    {
+      name     = "EDL compliance tags"
+      result   = local.edl_tags_ok ? "PASS" : "FAIL"
+      expected = join(", ", sort(keys(local.edl_tag_rules)))
+      found    = local.edl_tags_ok ? "9/9 valid" : join(", ", local.edl_tag_failures)
     },
   ]
 

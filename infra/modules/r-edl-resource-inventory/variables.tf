@@ -45,8 +45,9 @@ variable "trusted_source_account_ids" {
 }
 
 variable "tags" {
-  type    = map(string)
-  default = {}
+  type        = map(string)
+  description = "EDL audit tags (Project Name, ProjectNumber, Organization, CostAllocation, Environment, Project Role, edl:project_id, Title Data, boc:created_by). Same set as s3-taggings."
+  default     = {}
 }
 
 variable "verification_dir" {

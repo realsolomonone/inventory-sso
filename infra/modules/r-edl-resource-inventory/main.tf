@@ -9,12 +9,21 @@ locals {
   sso_role_arn_this_account = "arn:${local.partition}:iam::${local.account_id}:role/aws-reserved/sso.amazonaws.com/*"
   sso_role_arns_extra       = [for id in var.trusted_source_account_ids : "arn:${local.partition}:iam::${id}:role/aws-reserved/sso.amazonaws.com/*"]
   assume_arn_likes          = concat([local.sso_role_arn_this_account], local.sso_role_arns_extra, var.trusted_principal_arns)
+  # Defaults match s3-taggings EDL required tags. Terragrunt var.tags override.
   common_tags = merge(
     {
-      Name           = var.role_name
-      ManagedBy      = "terragrunt"
-      Purpose        = "edl-resource-inventory"
-      "Project Name" = "edl_resource_inventory"
+      Name             = var.role_name
+      ManagedBy        = "terragrunt"
+      Purpose          = "edl-resource-inventory"
+      "Project Name"   = "edl_resource_inventory"
+      ProjectNumber    = "fs0000000001"
+      Organization     = "census:ocio:adsd"
+      CostAllocation   = "adsd:edl"
+      Environment      = "common"
+      "Project Role"   = "edl_resource_inventory"
+      "edl:project_id" = "9999999"
+      "Title Data"     = "title_13/title_26"
+      "boc:created_by" = "terragrunt"
     },
     var.tags,
   )

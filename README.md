@@ -59,6 +59,26 @@ python edl_resource_inventory.py verify --open
 
 ---
 
+## Tags (audit / compliance)
+
+Same required set as **s3-taggings**. Terragrunt stamps them on `r-edl-resource-inventory`. Verify fails the account if any key is missing or invalid.
+
+| Key | Default (override with `TAG_*`) |
+|-----|----------------------------------|
+| Project Name | `edl_resource_inventory` |
+| ProjectNumber | `fs0000000001` |
+| Organization | `census:ocio:adsd` |
+| CostAllocation | `adsd:edl` |
+| Environment | `common` (`dev` / `qa` / `uat` / `staging` / `prod` / `test` / `sandbox` / `common` only — not `gov-east`) |
+| Project Role | `edl_resource_inventory` |
+| edl:project_id | `9999999` |
+| Title Data | `title_13/title_26` |
+| boc:created_by | `terragrunt` |
+
+Set real values in `config/envs/<name>.env` (`TAG_PROJECT_NUMBER`, `TAG_EDL_PROJECT_ID`, …). `ENVIRONMENT=gov-east` is the env-file name; `TAG_ENVIRONMENT` is the FinOps tag.
+
+---
+
 ## Architecture
 
 Open **[docs/architecture/index.html](docs/architecture/index.html)** — one walkthrough (junior, engineer, executive).

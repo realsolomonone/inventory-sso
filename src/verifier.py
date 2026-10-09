@@ -13,7 +13,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from .aws_partition import detect_partition, home_region_for_partition
 from .identity import lookup_catalog
-from .models import AccountVerify, CheckResult, InventoryConfig, VerifyReport
+from .models import AccountVerify, CheckResult, InventoryConfig, TagHealth, TagSpec, VerifyReport
 from .policy import (
     TAG_ACTIONS,
     VIEW_ACTIONS,
@@ -24,6 +24,7 @@ from .policy import (
     statement_by_sid,
     trust_allows_sso,
 )
+from .tags import collect_issues, extract_expected, score_tags
 
 logger = logging.getLogger(__name__)
 
@@ -64,12 +65,15 @@ def evaluate_role(
     account_id: str,
     partition: str,
     resource_group_account_id: str,
+    role_tags: dict[str, str] | None = None,
+    tag_specs: list[TagSpec] | None = None,
+    tag_error: str = "",
 ) -> list[CheckResult]:
     view = statement_by_sid(inline_policy, "ViewSpecificResourceGroup") or {}
     tagging = statement_by_sid(inline_policy, "TaggingReadOnly") or {}
     expected_arn = resource_groups_arn(partition, resource_group_account_id or account_id)
     found_arns = as_list(view.get("Resource"))
-    return [
+    checks = [
         _check("Role exists", True, role_name, str(role.get("RoleName") or ""), str(role.get("Arn") or "")),
         _check(
             "Trust allows IAM Identity Center",
@@ -96,6 +100,61 @@ def evaluate_role(
             ", ".join(as_list(tagging.get("Action"))) or "(missing)",
         ),
     ]
+    if tag_specs:
+        checks.extend(evaluate_edl_tags(role_tags or {}, tag_specs, tag_error=tag_error))
+    return checks
+
+
+def evaluate_edl_tags(
+    role_tags: dict[str, str],
+    specs: list[TagSpec],
+    *,
+    tag_error: str = "",
+) -> list[CheckResult]:
+    if tag_error:
+        keys = ", ".join(spec.key for spec in specs)
+        return [_check("EDL compliance tags", False, keys, "(unavailable)", tag_error)]
+    expected = extract_expected(role_tags, specs)
+    issues = collect_issues(expected, specs)
+    health, pct = score_tags(expected, specs, issues=issues)
+    by_key = {item.key: item for item in issues}
+    checks: list[CheckResult] = [
+        _check(
+            "EDL compliance tags",
+            health == TagHealth.COMPLETE,
+            f"{len(specs)} required (s3-taggings)",
+            f"{pct}% {health.value}",
+            "Project Name, ProjectNumber, Organization, CostAllocation, Environment, Project Role, edl:project_id, Title Data, boc:created_by",
+        )
+    ]
+    for spec in specs:
+        issue = by_key.get(spec.key)
+        found = expected.get(spec.key) or "(missing)"
+        if issue:
+            checks.append(_check(f"Tag {spec.key}", False, spec.example, found, issue.reason))
+        else:
+            checks.append(_check(f"Tag {spec.key}", True, spec.example, found, "audit/compliance"))
+    return checks
+
+
+def list_role_tags(iam: Any, role_name: str) -> dict[str, str]:
+    tags: dict[str, str] = {}
+    marker: str | None = None
+    while True:
+        kwargs: dict[str, Any] = {"RoleName": role_name}
+        if marker:
+            kwargs["Marker"] = marker
+        resp = iam.list_role_tags(**kwargs)
+        for item in resp.get("Tags") or []:
+            key = str(item.get("Key") or "")
+            if key:
+                tags[key] = str(item.get("Value") or "")
+        if not resp.get("IsTruncated"):
+            break
+        marker = resp.get("Marker")
+        if not marker:
+            break
+    return tags
 
 
 def _probe_tag_api(session: Any, region: str) -> str:
@@ -177,6 +236,15 @@ def verify_account(session: Any, profile: str, config: InventoryConfig, *, probe
         inline = {"_error": _error_code(exc)}
 
     rg_account = config.role.resource_group_account_id or account_id
+    role_tags: dict[str, str] = {}
+    tag_error = ""
+    try:
+        role_tags = list_role_tags(iam, role_name)
+    except ClientError as exc:
+        tag_error = f"{_error_code(exc)} listing role tags"
+    except BotoCoreError as exc:
+        tag_error = str(exc)
+
     checks = evaluate_role(
         role,
         trust,
@@ -185,6 +253,9 @@ def verify_account(session: Any, profile: str, config: InventoryConfig, *, probe
         account_id=account_id,
         partition=partition,
         resource_group_account_id=rg_account,
+        role_tags=role_tags,
+        tag_specs=list(config.required_tags),
+        tag_error=tag_error,
     )
     if inline.get("_error"):
         checks.append(_check("Inline policy", False, policy_name, "(missing)", str(inline["_error"])))
@@ -218,7 +289,7 @@ def build_verify_narrative(report: VerifyReport) -> list[str]:
     lines = [
         f"{report.ticket}: verified IAM role {report.role_name} in {len(report.accounts)} account(s).",
         f"{report.passed_count} pass, {report.failed_count} fail, {report.missing_count} missing, {report.blocked_count} denied/error.",
-        "Checks: role exists, SSO trust, ViewSpecificResourceGroup, Resource Groups ARN, TaggingReadOnly.",
+        "Checks: role exists, SSO trust, ViewSpecificResourceGroup, Resource Groups ARN, TaggingReadOnly, EDL compliance tags.",
     ]
     missing = [row.profile for row in report.accounts if row.status == "missing"]
     if missing:

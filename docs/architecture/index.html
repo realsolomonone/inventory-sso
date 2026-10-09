@@ -67,6 +67,23 @@
   </div>
 
   <div class="card">
+    <h2>2b. Audit tags (same as s3-taggings)</h2>
+    <p>IAM role tags must match EDL required keys. Terragrunt applies them at create time. Python verify and Terraform <code>check</code> both score them. <code>Environment</code> is FinOps (<code>common</code> by default), not the env-file name <code>gov-east</code>.</p>
+    <table>
+      <tr><th>Key</th><th>Rule</th><th>Default on this role</th></tr>
+      <tr><td>Project Name</td><td><code>edl_</code> + slug</td><td><code>edl_resource_inventory</code></td></tr>
+      <tr><td>ProjectNumber</td><td><code>fs</code> + 10 digits</td><td><code>fs0000000001</code></td></tr>
+      <tr><td>Organization</td><td>colon path</td><td><code>census:ocio:adsd</code></td></tr>
+      <tr><td>CostAllocation</td><td>org:program</td><td><code>adsd:edl</code></td></tr>
+      <tr><td>Environment</td><td>dev, qa, uat, staging, prod, test, sandbox, common</td><td><code>common</code></td></tr>
+      <tr><td>Project Role</td><td><code>edl_</code> + slug</td><td><code>edl_resource_inventory</code></td></tr>
+      <tr><td>edl:project_id</td><td>numeric</td><td><code>9999999</code></td></tr>
+      <tr><td>Title Data</td><td>slash-separated titles</td><td><code>title_13/title_26</code></td></tr>
+      <tr><td>boc:created_by</td><td>lowercase id</td><td><code>terragrunt</code></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
     <h2>3. Deploy (run these)</h2>
     <p>Always <code>terragrunt run --all</code> from <code>infra/live/accounts</code>. Do not use <code>run-all</code>. Do not run from <code>infra/live</code>.</p>
 <pre>cd ~/workspace/inventory-sso
@@ -91,7 +108,7 @@ terragrunt run --all apply</pre>
       <tr><td><code>reports/role-verify.html</code></td><td>Per-check detail if a row failed</td></tr>
     </table>
     <ul>
-      <li><span class="ok">PASS</span> role present and policy matches</li>
+      <li><span class="ok">PASS</span> role present, policy matches, EDL tags complete</li>
       <li><span class="bad">MISSING</span> apply has not run in that account</li>
       <li><span class="bad">DENIED</span> SSO expired — login, don’t redeploy</li>
     </ul>
@@ -106,10 +123,10 @@ terragrunt run --all apply</pre>
       <tr><td>Units</td><td><code>scripts/stacks-generate.sh</code></td><td>One <code>terragrunt.hcl</code> per SSO profile (gitignored)</td></tr>
       <tr><td>Control</td><td><code>infra/live/root.hcl</code></td><td>Provider generate, tags, Terraform ≥ 1.5 shim</td></tr>
       <tr><td>IAM</td><td><code>infra/modules/r-edl-resource-inventory</code></td><td>Role + inline policy</td></tr>
-      <tr><td>Python</td><td><code>src/verifier.py</code></td><td><code>GetRole</code> / <code>GetRolePolicy</code></td></tr>
+      <tr><td>Python</td><td><code>src/verifier.py</code></td><td><code>GetRole</code> / <code>GetRolePolicy</code> / <code>ListRoleTags</code></td></tr>
       <tr><td>HTML</td><td><code>src/html_report.py</code></td><td><code>executive.html</code> + <code>role-verify.html</code></td></tr>
     </table>
-    <p>Python checks: role exists; SSO trust; ViewSpecificResourceGroup; Resource Groups ARN; TaggingReadOnly; optional <code>tag:GetTagKeys</code>.</p>
+    <p>Python checks: role exists; SSO trust; ViewSpecificResourceGroup; Resource Groups ARN; TaggingReadOnly; EDL compliance tags (ListRoleTags); optional <code>tag:GetTagKeys</code>.</p>
   </div>
 
   <div class="card">

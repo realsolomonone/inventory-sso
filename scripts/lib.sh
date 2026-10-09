@@ -27,6 +27,20 @@ _restore_override() {
   eval "if [ \"\${_set_$1}\" = x ]; then $1=\${_ov_$1}; fi"
 }
 
+_EDL_TAG_VARS="TAG_PROJECT_NAME TAG_PROJECT_NUMBER TAG_ORGANIZATION TAG_COST_ALLOCATION TAG_ENVIRONMENT TAG_PROJECT_ROLE TAG_EDL_PROJECT_ID TAG_TITLE_DATA TAG_BOC_CREATED_BY"
+
+_save_edl_tag_overrides() {
+  for _v in $_EDL_TAG_VARS; do
+    _save_override "$_v"
+  done
+}
+
+_restore_edl_tag_overrides() {
+  for _v in $_EDL_TAG_VARS; do
+    _restore_override "$_v"
+  done
+}
+
 load_project_env() {
   _save_override ENVIRONMENT
   _save_override ENV_FILE
@@ -44,6 +58,7 @@ load_project_env() {
   _save_override RESOURCE_GROUP_ACCOUNT_ID
   _save_override TRUSTED_PRINCIPAL_ARNS
   _save_override TRUSTED_SOURCE_ACCOUNT_IDS
+  _save_edl_tag_overrides
 
   set -a
   # shellcheck disable=SC1091
@@ -90,6 +105,7 @@ load_project_env() {
   _restore_override RESOURCE_GROUP_ACCOUNT_ID
   _restore_override TRUSTED_PRINCIPAL_ARNS
   _restore_override TRUSTED_SOURCE_ACCOUNT_IDS
+  _restore_edl_tag_overrides
 
   PROJECT="${PROJECT:-inventory-sso}"
   ENVIRONMENT="${ENVIRONMENT:-gov-east}"
@@ -106,6 +122,9 @@ load_project_env() {
   export TRUSTED_PRINCIPAL_ARNS TRUSTED_SOURCE_ACCOUNT_IDS
   export PROFILE_PREFIX SSO_START_URL EXCLUDE_PROFILES AWS_CONFIG_FILE
   export TG_FAIL_IF_NOT_COMPLIANT="${TG_FAIL_IF_NOT_COMPLIANT:-false}"
+  for _v in $_EDL_TAG_VARS; do
+    eval "export $_v"
+  done
 }
 
 need_cmd() {

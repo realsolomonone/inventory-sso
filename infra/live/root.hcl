@@ -65,12 +65,21 @@ inputs = {
   trusted_principal_arns     = compact([for v in split(",", get_env("TRUSTED_PRINCIPAL_ARNS", "")) : trimspace(v)])
   trusted_source_account_ids = compact([for v in split(",", get_env("TRUSTED_SOURCE_ACCOUNT_IDS", "")) : trimspace(v)])
   fail_if_not_compliant      = false
+  # EDL required tags (same keys/patterns as s3-taggings). Environment here is
+  # the FinOps tag (dev/qa/prod/common), not the env-file name (gov-east).
   tags = {
-    Environment    = local.environment
-    Project        = local.project
-    Purpose        = get_env("PURPOSE", "edl-resource-inventory")
-    "Project Name" = get_env("PROJECT_NAME_TAG", "edl_resource_inventory")
-    ManagedBy      = "terragrunt"
+    "Project Name"   = get_env("TAG_PROJECT_NAME", get_env("PROJECT_NAME_TAG", "edl_resource_inventory"))
+    ProjectNumber    = get_env("TAG_PROJECT_NUMBER", "fs0000000001")
+    Organization     = get_env("TAG_ORGANIZATION", "census:ocio:adsd")
+    CostAllocation   = get_env("TAG_COST_ALLOCATION", "adsd:edl")
+    Environment      = get_env("TAG_ENVIRONMENT", "common")
+    "Project Role"   = get_env("TAG_PROJECT_ROLE", "edl_resource_inventory")
+    "edl:project_id" = get_env("TAG_EDL_PROJECT_ID", "9999999")
+    "Title Data"     = get_env("TAG_TITLE_DATA", "title_13/title_26")
+    "boc:created_by" = get_env("TAG_BOC_CREATED_BY", "terragrunt")
+    Project          = local.project
+    Purpose          = get_env("PURPOSE", "edl-resource-inventory")
+    ManagedBy        = "terragrunt"
   }
 }
 

@@ -1,5 +1,6 @@
 from src.config_loader import load_config
 from src.policy import SCREENSHOT_EXAMPLE_ACCOUNT, TAG_ACTIONS, VIEW_ACTIONS, inventory_policy, resource_groups_arn
+from src.tags import REQUIRED_EDL_TAG_KEYS
 
 
 def test_policy_matches_screenshot_sids_and_actions():
@@ -24,3 +25,4 @@ def test_config_role_defaults():
     assert cfg.role.name == "r-edl-resource-inventory"
     assert cfg.partition == "aws-us-gov"
     assert any(spec.key == "Project Name" for spec in cfg.required_tags)
+    assert [spec.key for spec in cfg.required_tags] == list(REQUIRED_EDL_TAG_KEYS)
